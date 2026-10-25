@@ -120,43 +120,80 @@
   }
 
   /* ======================================================
+     一点五、One Euro Filter（业界标准平滑：静止高精度 / 移动低延迟）
+     ====================================================== */
+
+  function OneEuro(minCutoff, beta) {
+    this.minCutoff = minCutoff || 1.0;
+    this.beta = beta || 0.007;
+    this.dCutoff = 1.0;
+    this.xPrev = null;
+    this.dxPrev = 0;
+    this.tPrev = 0;
+  }
+  OneEuro.prototype.alpha = function (cutoff, dt) {
+    var tau = 1 / (2 * Math.PI * cutoff);
+    return 1 / (1 + tau / dt);
+  };
+  OneEuro.prototype.filter = function (x, tSec) {
+    if (this.xPrev === null) {
+      this.xPrev = x;
+      this.tPrev = tSec;
+      return x;
+    }
+    var dt = Math.max(tSec - this.tPrev, 1e-4);
+    this.tPrev = tSec;
+    var dx = (x - this.xPrev) / dt;
+    var edx = this.dxPrev + this.alpha(this.dCutoff, dt) * (dx - this.dxPrev);
+    this.dxPrev = edx;
+    var cutoff = this.minCutoff + this.beta * Math.abs(edx);
+    var out = this.xPrev + this.alpha(cutoff, dt) * (x - this.xPrev);
+    this.xPrev = out;
+    return out;
+  };
+
+  /* ======================================================
      二、手势状态机（防抖 + 事件）
      ====================================================== */
 
   var HOLD_FRAMES = 3;     /* 连续 3 帧同手势才确认 */
+  /* 滞回双阈值（Ultraleap 官方推荐做法）：
+     进入捏合要紧（0.35），松开判定要宽（0.58）——
+     抓取期间指尖微颤不会意外松手 */
+  var PINCH_ENTER = 0.35;
+  var PINCH_EXIT = 0.58;
+
+  var pinchFx = new OneEuro(1.2, 0.02);   /* 捏合点 x/y 各自滤波 */
+  var pinchFy = new OneEuro(1.2, 0.02);
   var state = {
     cur: 'none',
     cand: 'none',
     candCount: 0,
     since: 0,
-    palmSm: null,          /* EMA 平滑后的掌心 */
-    lastFire: {},          /* 各手势上次触发时间（防重复） */
-    pinchDown: false,      /* 捏合会话进行中 */
-    pointActive: false
+    lastSeen: 0,           /* 最后检测到手的时间（无手超时用） */
+    lastFire: {},
+    pinchDown: false
   };
 
   function fireEvent(name, detail) {
     window.dispatchEvent(new CustomEvent('gesture-' + name, { detail: detail || {} }));
   }
 
-  function onClassified(g, mirrored) {
+  function onClassified(g, lm, mirrored) {
     if (!g) { updateHud(null); return; }
     var now = performance.now();
+    state.lastSeen = now;
 
-    /* 掌心 EMA 平滑 */
-    if (!state.palmSm) state.palmSm = { x: g.palm.x, y: g.palm.y };
-    else {
-      state.palmSm.x += (g.palm.x - state.palmSm.x) * 0.25;
-      state.palmSm.y += (g.palm.y - state.palmSm.y) * 0.25;
+    /* 手势确认（带 pinch 滞回）：已处于 pinch 会话时，宽阈值判定 */
+    var effType = g.type;
+    if (state.pinchDown) {
+      if (g.pinch > PINCH_EXIT) effType = (effType === 'pinch') ? 'none' : effType;
+      else effType = 'pinch';   /* 会话中：只要还捏着就保持 pinch */
     }
 
-    /* 候选 → 确认 */
-    if (g.type === state.cand) {
-      state.candCount++;
-    } else {
-      state.cand = g.type;
-      state.candCount = 1;
-    }
+    if (effType === state.cand) state.candCount++;
+    else { state.cand = effType; state.candCount = 1; }
+
     var confirmed = null;
     if (state.candCount >= HOLD_FRAMES && state.cur !== state.cand) {
       state.cur = state.cand;
@@ -164,31 +201,33 @@
       confirmed = state.cur;
     }
 
-    var sm = {
-      x: mirrored ? 1 - state.palmSm.x : state.palmSm.x,
-      y: state.palmSm.y
-    };
-    g.palmSm = sm;
+    /* 捏合点（拇指食指中点）经 OneEuro 平滑——比掌心更跟手更准 */
+    var px = (lm[4].x + lm[8].x) / 2;
+    var py = (lm[4].y + lm[8].y) / 2;
+    var tSec = now / 1000;
+    if (mirrored) px = 1 - px;
+    var sx = pinchFx.filter(px, tSec);
+    var sy = pinchFy.filter(py, tSec);
+    var pinchX = Math.round(sx * window.innerWidth);
+    var pinchY = Math.round(sy * window.innerHeight);
+
+    /* 食指尖也平滑（point 指针） */
+    var tipX = mirrored ? 1 - lm[8].x : lm[8].x;
+    var tipY = lm[8].y;
+
     g.confirmed = confirmed;
 
     /* 持续类手势数据流（每帧） */
     if (state.cur === 'pinch') {
-      fireEvent('pinchmove', {
-        x: Math.round(sm.x * window.innerWidth),
-        y: Math.round(sm.y * window.innerHeight),
-        pinch: g.pinch
-      });
+      fireEvent('pinchmove', { x: pinchX, y: pinchY, pinch: g.pinch });
     } else if (state.cur === 'point') {
-      /* 虚拟指针用食指尖更精准 */
-      var tip = lm8Cache;
-      if (tip) {
-        fireEvent('pointmove', {
-          x: Math.round((mirrored ? 1 - tip.x : tip.x) * window.innerWidth),
-          y: Math.round(tip.y * window.innerHeight)
-        });
-      }
+      fireEvent('pointmove', {
+        x: Math.round(tipX * window.innerWidth),
+        y: Math.round(tipY * window.innerHeight)
+      });
     } else if (state.cur === 'open') {
-      fireEvent('palmmove', { nx: sm.x, ny: sm.y });
+      var ox = mirrored ? 1 - ((lm[0].x + lm[5].x + lm[17].x) / 3) : (lm[0].x + lm[5].x + lm[17].x) / 3;
+      fireEvent('palmmove', { nx: ox, ny: (lm[0].y + lm[9].y) / 2 });
     }
 
     /* 确认沿（一次性动作，带冷却） */
@@ -199,17 +238,14 @@
         fireEvent('fire', { type: confirmed });
         showGestureToast(confirmed);
       }
-      /* 进入/退出捏合会话 */
       if (confirmed === 'pinch') {
         state.pinchDown = true;
-        fireEvent('pinchstart', {
-          x: Math.round(sm.x * window.innerWidth),
-          y: Math.round(sm.y * window.innerHeight)
-        });
+        state.cand = 'pinch'; state.candCount = HOLD_FRAMES;
+        fireEvent('pinchstart', { x: pinchX, y: pinchY });
       }
     }
 
-    /* 捏合结束检测：当前非 pinch 且之前是 */
+    /* 捏合结束：滞回判定（已由 effType 处理） */
     if (state.cur !== 'pinch' && state.pinchDown) {
       state.pinchDown = false;
       fireEvent('pinchend', {});
@@ -383,37 +419,81 @@
     hudSay('手势识别已关闭');
   }
 
+  /* 主手连续性：多手时选「离上一帧主手最近」的，防止双手交错时跳变 */
+  var lastWrist = null;
+
+  function pickMainHand(lms) {
+    if (!lms || !lms.length) return null;
+    if (lms.length === 1 || !lastWrist) {
+      lastWrist = lms[0][0];
+      return lms[0];
+    }
+    var best = null, bd = 1e9;
+    for (var i = 0; i < lms.length; i++) {
+      var d = dist(lms[i][0], lastWrist);
+      if (d < bd) { bd = d; best = lms[i]; }
+    }
+    lastWrist = best[0];
+    return best;
+  }
+
+  /* 检测质量监控：连续丢帧提示改善环境 */
+  var lostFrames = 0;
+  function onNoHand() {
+    lostFrames++;
+    if (state.pinchDown) {
+      state.pinchDown = false;
+      fireEvent('pinchend', {});
+    }
+    state.cur = 'none';
+    state.cand = 'none';
+    if (lostFrames === 45) {          /* ~1.5s 无手 */
+      hudSay('未检测到手：调整距离（40-60cm）与光照', true);
+    }
+    updateHud(null);
+  }
+
+  /* 自适应性能：连续慢帧自动降模型精度 */
+  var slowFrames = 0;
+  function adaptPerf(dtMs) {
+    if (dtMs > 55) slowFrames++;
+    else slowFrames = Math.max(0, slowFrames - 1);
+    if (slowFrames >= 20 && hands && perfLevel > 0) {
+      perfLevel = 0;
+      hands.setOptions({ modelComplexity: 0 });
+      hudSay('已切轻量模式（低配设备自适应）');
+      slowFrames = 0;
+    }
+  }
+  var perfLevel = 1;
+  var lastFrameTs = 0;
+
   function onResults(res) {
+    var now = performance.now();
+    if (lastFrameTs) adaptPerf(now - lastFrameTs);
+    lastFrameTs = now;
+
     var lms = res.multiHandLandmarks;
     drawHudCanvas(res);
-    if (!lms || !lms.length) {
-      /* 手离开画面：结束任何捏合会话 */
-      if (state.pinchDown) {
-        state.pinchDown = false;
-        fireEvent('pinchend', {});
-      }
-      state.cur = 'none';
-      state.cand = 'none';
-      updateHud(null);
-      return;
-    }
-    /* 主手 = 第一只；记录食指尖 */
-    lm8Cache = lms[0][8];
-    var g = classifyHand(lms[0], true);  /* 镜像：摄像头自拍视角 */
-    onClassified(g, true);
+    if (!lms || !lms.length) { onNoHand(); return; }
+    if (lostFrames >= 45) hudSay('手势识别中 ✋');
+    lostFrames = 0;
+
+    var mainLm = pickMainHand(lms);
+    lm8Cache = mainLm[8];
+    var g = classifyHand(mainLm, true);
+    onClassified(g, mainLm, true);
 
     /* 双手捏合 → 缩放（自由模式） */
     if (lms.length > 1) {
-      var g2 = classifyHand(lms[1], true);
+      var other = lms[0] === mainLm ? lms[1] : lms[0];
+      var g2 = classifyHand(other, true);
       if (g && g.type === 'pinch' && g2 && g2.type === 'pinch') {
-        var d = dist(
-          { x: g.palmSm ? g.palmSm.x : g.palm.x, y: g.palm.y },
-          { x: g2.palm.x, y: g2.palm.y }
-        );
+        var d = dist(mainLm[4], other[4]);
         if (twoHandRef == null) twoHandRef = d;
         else {
           var factor = d / twoHandRef;
-          if (Math.abs(factor - 1) > 0.06) {
+          if (Math.abs(factor - 1) > 0.05) {
             fireEvent('twohand', { factor: factor });
             twoHandRef = d;
           }
