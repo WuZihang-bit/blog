@@ -54,8 +54,8 @@
     { name: '火星',   en: 'MARS',    tex: 'mars',  file: '8k_mars.jpg',           tilt: 25.2, r: 3.8, dist: 110, speed: 1.1,  phase: 5.2, mass: 0.6 },
     { name: '木星',   en: 'JUPITER', tex: 'jup',   file: '8k_jupiter.jpg',        tilt: 3.1,  texFlow: 0.0015,  r: 13,  dist: 152, speed: 0.6,  phase: 2.1, mass: 12 },
     { name: '土星',   en: 'SATURN',  tex: 'sat',   file: '8k_saturn.jpg',         tilt: 26.7, r: 11,  dist: 195, speed: 0.48, phase: 4.4, mass: 7, ring: true },
-    { name: '天王星', en: 'URANUS',  tex: 'ura',   file: '2k_uranus.jpg',         tilt: 97.8, r: 7,   dist: 232, speed: 0.4,  phase: 0.9, mass: 3 },
-    { name: '海王星', en: 'NEPTUNE', tex: 'nep',   file: '2k_neptune.jpg',        tilt: 28.3, texFlow: 0.002, r: 6.8, dist: 262, speed: 0.33, phase: 2.8, mass: 2.8 }
+    { name: '天王星', en: 'URANUS',  tex: 'ura',   file: null,               /* 增强程序化（真实贴图太平） */         tilt: 97.8, r: 7,   dist: 232, speed: 0.4,  phase: 0.9, mass: 3 },
+    { name: '海王星', en: 'NEPTUNE', tex: 'nep',   file: null,               /* 增强程序化（真实贴图太平） */        tilt: 28.3, texFlow: 0.002, r: 6.8, dist: 262, speed: 0.33, phase: 2.8, mass: 2.8 }
   ];
 
   /* ---------- 确定性随机 ---------- */
@@ -223,27 +223,100 @@
   }
 
   function paintIce(g, w, h, rnd, nep) {
-    var grad = g.createLinearGradient(0, 0, 0, h);
+    /* 冰巨星增强绘制：真实冰巨星表面特征极淡，这里艺术化增强——
+       微渐变条纹、行星尺度涡旋、极冠与高纬亮化（天王星），
+       大暗斑与伴行卷云（海王星） */
+    var base = g.createLinearGradient(0, 0, 0, h);
     if (nep) {
-      grad.addColorStop(0, '#3a56c9');
-      grad.addColorStop(0.5, '#4a63d8');
-      grad.addColorStop(1, '#3a56c9');
+      base.addColorStop(0, '#2b48b8');
+      base.addColorStop(0.28, '#3d5ed6');
+      base.addColorStop(0.5, '#4a6ce0');
+      base.addColorStop(0.72, '#3d5ed6');
+      base.addColorStop(1, '#2b48b8');
     } else {
-      grad.addColorStop(0, '#5fb4c4');
-      grad.addColorStop(0.5, '#79c9d8');
-      grad.addColorStop(1, '#5fb4c4');
+      base.addColorStop(0, '#4fa8bc');
+      base.addColorStop(0.3, '#74cad9');
+      base.addColorStop(0.5, '#8ad9e5');
+      base.addColorStop(0.7, '#74cad9');
+      base.addColorStop(1, '#4fa8bc');
     }
-    g.fillStyle = grad;
+    g.fillStyle = base;
     g.fillRect(0, 0, w, h);
-    for (var i = 0; i < 7; i++) {
-      g.fillStyle = 'rgba(255,255,255,0.10)';
-      g.fillRect(0, h * 0.15 + i * h * 0.11, w, h * 0.03);
+
+    /* 横向云带：宽窄交替、亮度微差、边缘柔化 */
+    var bands = 9;
+    for (var i = 0; i < bands; i++) {
+      var y0 = h * (0.08 + 0.84 * i / bands);
+      var bh = h * (0.03 + rnd() * 0.05);
+      var lum = 0.05 + rnd() * 0.09;
+      var band = g.createLinearGradient(0, y0, 0, y0 + bh);
+      band.addColorStop(0, 'rgba(255,255,255,0)');
+      band.addColorStop(0.5, 'rgba(235,246,255,' + lum.toFixed(3) + ')');
+      band.addColorStop(1, 'rgba(255,255,255,0)');
+      g.fillStyle = band;
+      g.fillRect(0, y0, w, bh);
+      /* 暗带间隔 */
+      if (i % 2 === 0) {
+        var dark = g.createLinearGradient(0, y0 + bh, 0, y0 + bh + h * 0.02);
+        dark.addColorStop(0, 'rgba(10,20,80,0.10)');
+        dark.addColorStop(1, 'rgba(10,20,80,0)');
+        g.fillStyle = dark;
+        g.fillRect(0, y0 + bh, w, h * 0.02);
+      }
     }
+
     if (nep) {
-      g.fillStyle = 'rgba(20,30,100,0.5)';
+      /* 大暗斑（大西洋大小的反气旋） */
+      var dsx = w * 0.34, dsy = h * 0.42;
+      var ds = g.createRadialGradient(dsx, dsy, 0, dsx, dsy, w * 0.075);
+      ds.addColorStop(0, 'rgba(12,22,86,0.55)');
+      ds.addColorStop(0.7, 'rgba(12,22,86,0.28)');
+      ds.addColorStop(1, 'rgba(12,22,86,0)');
+      g.fillStyle = ds;
       g.beginPath();
-      g.ellipse(w * 0.35, h * 0.42, w * 0.06, h * 0.06, 0.15, 0, 6.2832);
+      g.ellipse(dsx, dsy, w * 0.075, h * 0.052, 0.12, 0, 6.2832);
       g.fill();
+      /* 第二暗斑 */
+      var ds2 = g.createRadialGradient(w * 0.72, h * 0.6, 0, w * 0.72, h * 0.6, w * 0.045);
+      ds2.addColorStop(0, 'rgba(12,22,86,0.38)');
+      ds2.addColorStop(1, 'rgba(12,22,86,0)');
+      g.fillStyle = ds2;
+      g.beginPath();
+      g.ellipse(w * 0.72, h * 0.6, w * 0.045, h * 0.032, -0.1, 0, 6.2832);
+      g.fill();
+      /* 伴行白色卷云（Scooter） */
+      var sc = g.createRadialGradient(w * 0.4, h * 0.52, 0, w * 0.4, h * 0.52, w * 0.1);
+      sc.addColorStop(0, 'rgba(240,248,255,0.4)');
+      sc.addColorStop(1, 'rgba(240,248,255,0)');
+      g.fillStyle = sc;
+      g.beginPath();
+      g.ellipse(w * 0.4, h * 0.52, w * 0.1, h * 0.018, 0.05, 0, 6.2832);
+      g.fill();
+    } else {
+      /* 天王星：高纬极冠亮化（旅行者2号观测到的极冠） */
+      var cap = g.createLinearGradient(0, 0, 0, h * 0.3);
+      cap.addColorStop(0, 'rgba(214,242,248,0.5)');
+      cap.addColorStop(1, 'rgba(214,242,248,0)');
+      g.fillStyle = cap;
+      g.fillRect(0, 0, w, h * 0.3);
+      var cap2 = g.createLinearGradient(0, h, 0, h * 0.7);
+      cap2.addColorStop(0, 'rgba(214,242,248,0.4)');
+      cap2.addColorStop(1, 'rgba(214,242,248,0)');
+      g.fillStyle = cap2;
+      g.fillRect(0, h * 0.7, w, h * 0.3);
+    }
+
+    /* 细噪云丝：拉长的横向薄雾 */
+    for (var f = 0; f < 22; f++) {
+      var fy = h * (0.1 + rnd() * 0.8);
+      var fx = rnd() * w;
+      var fw = w * (0.05 + rnd() * 0.14);
+      g.strokeStyle = 'rgba(255,255,255,' + (0.03 + rnd() * 0.05).toFixed(3) + ')';
+      g.lineWidth = 1.2;
+      g.beginPath();
+      g.moveTo(fx, fy);
+      g.quadraticCurveTo(fx + fw / 2, fy - 3, fx + fw, fy);
+      g.stroke();
     }
   }
 
@@ -882,7 +955,7 @@
       var body = new THREE.Mesh(
         sphereGeo,
         new THREE.MeshPhongMaterial({
-          map: makeMap(p.r >= 6 ? 512 : 256, painters[p.tex], idx + 11),
+          map: makeMap(p.r >= 6 ? 1024 : 512, painters[p.tex], idx + 11),
           shininess: 6,
           specular: 0x333333
         })
