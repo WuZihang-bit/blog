@@ -395,6 +395,22 @@
   var texLoader = new THREE.TextureLoader();
   texLoader.setCrossOrigin("anonymous");
 
+  /* 贴图错峰加载队列：大 JPEG 同时解码会造成内存/GPU 峰值（低端机卡死根因），
+     一次最多解码 2 张，间隔 120ms——总时长几乎不变，峰值减半 */
+  var texQueue = [];
+  var texActive = 0;
+
+  function pumpTexQueue() {
+    while (texActive < 2 && texQueue.length) {
+      var job = texQueue.shift();
+      texActive++;
+      job(function () {
+        texActive--;
+        setTimeout(pumpTexQueue, 120);
+      });
+    }
+  }
+
   function tryRealTex(file, material, obj) {
     if (!file) return;
     var revealed = false;
@@ -406,18 +422,22 @@
       revealed = true;
       if (obj) obj.visible = true;
     };
-    texLoader.load(
-      TEX_BASE + "textures/" + file,
-      function (t) {
-        t.anisotropy = 4;
-        material.map = t;
-        material.needsUpdate = true;
-        show();
-      },
-      undefined,
-      function () { show(); } /* 下载失败：显示程序化贴图 */
-    );
-    setTimeout(show, 900);
+    texQueue.push(function (done) {
+      texLoader.load(
+        TEX_BASE + "textures/" + file,
+        function (t) {
+          t.anisotropy = 2;
+          material.map = t;
+          material.needsUpdate = true;
+          show();
+          done();
+        },
+        undefined,
+        function () { show(); done(); } /* 失败：显示程序化贴图 */
+      );
+    });
+    pumpTexQueue();
+    setTimeout(show, 2500);
   }
 
   var sun = new THREE.Mesh(
@@ -716,7 +736,7 @@
   );
   scene.add(galaxyDome);
   texLoader.load(
-    TEX_BASE + 'textures/8k_stars_milky_way.jpg',
+    TEX_BASE + 'textures/2k_stars_milky_way.jpg',
     function (t) {
       galaxyDome.material.map = t;
       galaxyDome.material.opacity = 0.85;
@@ -1194,7 +1214,7 @@
         body.material.emissive = new THREE.Color(0xffc98a);
         body.material.emissiveIntensity = 0.0;
         texLoader.load(
-          TEX_BASE + 'textures/8k_earth_nightmap.jpg',
+          TEX_BASE + 'textures/2k_earth_nightmap.jpg',
           function (t) {
             body.material.emissiveMap = t;
             body.material.emissiveIntensity = 1.15;
@@ -1211,7 +1231,7 @@
         );
         clouds.scale.copy(body.scale).multiplyScalar(1.035);
         texLoader.load(
-          TEX_BASE + 'textures/8k_earth_clouds.jpg',
+          TEX_BASE + 'textures/2k_earth_clouds.jpg',
           function (t) {
             clouds.material.map = t;
             clouds.material.opacity = 0.92;
