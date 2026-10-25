@@ -487,62 +487,143 @@
      引力场可视化：轨道面网格按引力势挠曲（时空弯曲观感）
      ====================================================================== */
 
-  var GRAV_GRID = 56;                 // 56×56 网格
+  var GRAV_GRID = 64;                 // 64×64 网格
   var GRAV_SPAN = 560;                // 覆盖半径 280
-  var gravGrid = null;
+  var gravGrid = null;                // 主层（受势能挠曲）
+  var gravGrid2 = null;               // 浮层（抬高+更淡，制造立体视差）
+  var gravRings = [];                 // 各行星井口的等势线圈
   var gravOn = false;
 
   function buildGravGrid() {
-    var geo = new THREE.PlaneGeometry(GRAV_SPAN, GRAV_SPAN, GRAV_GRID, GRAV_GRID);
-    geo.rotateX(-Math.PI / 2);
-    /* 顶点色：势能越深越亮（青→紫） */
-    var colors = new Float32Array(geo.attributes.position.count * 3);
-    geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-    var mat = new THREE.MeshBasicMaterial({
-      vertexColors: true,
-      wireframe: true,
-      transparent: true,
-      opacity: 0.5,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false
-    });
-    gravGrid = new THREE.Mesh(geo, mat);
-    gravGrid.visible = false;
-    scene.add(gravGrid);
+    function makeLayer(lift, opacity) {
+      var geo = new THREE.PlaneGeometry(GRAV_SPAN, GRAV_SPAN, GRAV_GRID, GRAV_GRID);
+      geo.rotateX(-Math.PI / 2);
+      var colors = new Float32Array(geo.attributes.position.count * 3);
+      geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+      var mat = new THREE.MeshBasicMaterial({
+        vertexColors: true,
+        wireframe: true,
+        transparent: true,
+        opacity: opacity,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+      });
+      var m = new THREE.Mesh(geo, mat);
+      m.userData.lift = lift;
+      m.visible = false;
+      scene.add(m);
+      return m;
+    }
+    gravGrid = makeLayer(0, 0.55);
+    gravGrid2 = makeLayer(26, 0.16);
   }
   buildGravGrid();
+
+  /* 等势线圈：每个行星井口 3 圈下沉同心线（相对论图的等高线感） */
+  function buildGravRings() {
+    gravRings.forEach(function (r) { scene.remove(r.line); });
+    gravRings = [];
+    if (!gravOn) return;
+    for (var j = 0; j < PLANETS.length; j++) {
+      var pl = PLANETS[j];
+      if (pl.mode === 'gone') continue;
+      var well = Math.sqrt(PARAMS.sunGravity * PARAMS.planetGravity * pl.mass) * 0.16;
+      for (var k = 0; k < 3; k++) {
+        var rr = pl.r * 1.35 * (1.9 + k * 1.15);
+        var seg = 64;
+        var pts = [];
+        for (var s = 0; s <= seg; s++) {
+          var a = (Math.PI * 2 * s) / seg;
+          var px = pl.group.position.x + Math.cos(a) * rr;
+          var pz = pl.group.position.z + Math.sin(a) * rr;
+          var dy = -well / (1 + k * 0.7);
+          pts.push(new THREE.Vector3(px, dy - 2, pz));
+        }
+        var geo = new THREE.BufferGeometry().setFromPoints(pts);
+        var mat = new THREE.LineBasicMaterial({
+          color: 0x9d7bff, transparent: true,
+          opacity: 0.5 - k * 0.13,
+          blending: THREE.AdditiveBlending, depthWrite: false
+        });
+        var line = new THREE.Line(geo, mat);
+        line.visible = gravOn;
+        scene.add(line);
+        gravRings.push({ line: line, planet: pl, idx: k, rr: rr, well: well });
+      }
+    }
+  }
 
   var GRAV_TMP = new THREE.Vector3();
 
   function stepGravGrid(dt) {
     if (!gravOn || !gravGrid || REDUCED) return;
-    var pos = gravGrid.geometry.attributes.position;
-    var col = gravGrid.geometry.attributes.color;
-    for (var i = 0; i < pos.count; i++) {
-      var x = pos.getX(i);
-      var z = pos.getZ(i);
-      /* 势能（负值，越靠近天体越深）与挠曲深度 */
-      var pot = 0;
-      var d0 = Math.sqrt(x * x + z * z);
-      if (d0 > 1) pot -= PARAMS.sunGravity / d0;
-      for (var j = 0; j < PLANETS.length; j++) {
-        var pl = PLANETS[j];
-        if (pl.mode === 'gone' || pl.mode === 'drag') continue;
-        var dx = x - pl.group.position.x;
-        var dz = z - pl.group.position.z;
-        var dp = Math.sqrt(dx * dx + dz * dz);
-        var well = PARAMS.sunGravity * PARAMS.planetGravity * pl.mass;
-        var cut = pl.r * 1.35 + 2;
-        if (dp > cut) pot -= well / dp;
-      }
-      var dip = Math.max(pot * 0.02, -34);   // 挠曲下限，防止穿模
-      pos.setY(i, dip * 0.5);
-      /* 颜色映射：浅势青蓝 → 深势亮紫 */
-      var t = Math.min(-pot / 90, 1);
-      col.setXYZ(i, 0.16 + t * 0.75, 0.55 + t * 0.15, 0.95 - t * 0.2);
+
+    /* 网格重建成本高，等势圈按需刷新（行星在动，每帧重建太贵——每 0.25s 重建一次） */
+    gravRingTimer += dt;
+    if (gravRingTimer > 0.25 || gravRingTimer < 0) {
+      gravRingTimer = 0;
+      buildGravRings();
     }
-    pos.needsUpdate = true;
-    col.needsUpdate = true;
+
+    var layers = [gravGrid, gravGrid2];
+    for (var L = 0; L < layers.length; L++) {
+      var mesh = layers[L];
+      var lift = mesh.userData.lift;
+      var pos = mesh.geometry.attributes.position;
+      var col = mesh.geometry.attributes.color;
+      for (var i = 0; i < pos.count; i++) {
+        var x = pos.getX(i);
+        var z = pos.getZ(i);
+        var d0 = Math.sqrt(x * x + z * z);
+        /* 史瓦西式势（1/r）→ 挠曲；太阳井 */
+        var pot = PARAMS.sunGravity / Math.max(d0, 8);
+        var holeDip = 0;
+        for (var j = 0; j < PLANETS.length; j++) {
+          var pl = PLANETS[j];
+          if (pl.mode === 'gone' || pl.mode === 'drag') continue;
+          var dx = x - pl.group.position.x;
+          var dz = z - pl.group.position.z;
+          var dp = Math.sqrt(dx * dx + dz * dz);
+          var pr = pl.r * 1.35 * PARAMS.planetScale;
+          var well = PARAMS.sunGravity * PARAMS.planetGravity * pl.mass;
+          if (dp > pr) {
+            pot += well / Math.max(dp, 6);
+            /* 井内下压：天体半径内的网格沉到球底以下（行星坐在井口，线不穿球） */
+            if (dp < pr * 1.35) {
+              var sink = 1 - dp / (pr * 1.35);
+              holeDip = Math.max(holeDip, sink * (pr * 2.6));
+            }
+          } else {
+            holeDip = pr * 2.6;   /* 球正下方：直接沉底 */
+          }
+        }
+        /* 太阳井同样避让 */
+        var sunPr = PARAMS.sunSize * 1.15;
+        if (d0 < sunPr) holeDip = Math.max(holeDip, (1 - d0 / sunPr) * PARAMS.sunSize * 2.2);
+
+        var dip = -Math.sqrt(pot) * 0.62 - holeDip;
+        pos.setY(i, Math.max(dip, -80) + lift);
+        /* 颜色：浅势青蓝 → 深势亮紫白 */
+        var t2 = Math.min(Math.sqrt(pot) / 26, 1);
+        col.setXYZ(i, 0.18 + t2 * 0.8, 0.55 + t2 * 0.2, 0.95 - t2 * 0.12);
+      }
+      pos.needsUpdate = true;
+      col.needsUpdate = true;
+    }
+  }
+  var gravRingTimer = 0;
+
+  function toggleGravField(force) {
+    gravOn = (force !== undefined) ? !!force : !gravOn;
+    if (gravGrid) gravGrid.visible = gravOn;
+    if (gravGrid2) gravGrid2.visible = gravOn;
+    if (gravOn) {
+      buildGravRings();
+    } else {
+      gravRings.forEach(function (r) { scene.remove(r.line); });
+      gravRings = [];
+    }
+    return gravOn;
   }
 
   /* ======================================================================
@@ -729,8 +810,9 @@
     /* 点击方向（屏幕 → 世界方向）作为喷流主轴 */
     updateNDC(screenX, screenY);
     raycaster.setFromCamera(pointerNDC, camera);
-    JET_DIR.copy(raycaster.ray.direction).setY(0).normalize();
-    if (JET_DIR.lengthSq() < 0.01) JET_DIR.set(1, 0, 0);
+    /* 喷流方向：太阳表面随机（像自发耀斑，不跟随点击位置） */
+    var jetAng = Math.random() * Math.PI * 2;
+    JET_DIR.set(Math.cos(jetAng), 0, Math.sin(jetAng));
     var R = PARAMS.sunSize;
     for (var i = 0; i < SUN_JET_N; i++) {
       var spread = (Math.random() - 0.5) * 0.5;
@@ -828,17 +910,17 @@
           /* 径向剖面：C 环暗 - B 环亮 - 卡西尼缝 - A 环 - 恩克缝 - F 环细线 */
           var stops = [
             [0.00, 'rgba(160,140,110,0.0)'],
-            [0.06, 'rgba(170,150,118,0.25)'],
-            [0.16, 'rgba(205,185,150,0.55)'],
-            [0.38, 'rgba(232,213,170,0.85)'],
-            [0.52, 'rgba(238,222,182,0.95)'],
-            [0.60, 'rgba(60,55,48,0.12)'],   /* 卡西尼缝 */
-            [0.62, 'rgba(60,55,48,0.10)'],
-            [0.70, 'rgba(216,196,156,0.75)'], /* A 环 */
-            [0.78, 'rgba(90,80,66,0.15)'],    /* 恩克缝 */
-            [0.80, 'rgba(210,190,150,0.65)'],
-            [0.93, 'rgba(180,160,126,0.30)'],
-            [0.96, 'rgba(200,182,148,0.5)'],  /* F 环 */
+            [0.05, 'rgba(186,166,132,0.42)'],
+            [0.16, 'rgba(225,206,168,0.78)'],
+            [0.38, 'rgba(245,228,188,0.96)'],
+            [0.52, 'rgba(252,240,204,1.0)'],
+            [0.60, 'rgba(70,64,56,0.14)'],   /* 卡西尼缝 */
+            [0.63, 'rgba(70,64,56,0.12)'],
+            [0.70, 'rgba(235,216,176,0.92)'], /* A 环 */
+            [0.78, 'rgba(96,86,70,0.16)'],    /* 恩克缝 */
+            [0.81, 'rgba(230,212,172,0.85)'],
+            [0.93, 'rgba(198,180,144,0.45)'],
+            [0.96, 'rgba(222,204,166,0.7)'],  /* F 环 */
             [1.00, 'rgba(200,182,148,0.0)']
           ];
           var grad = g.createLinearGradient(0, 0, 512, 0);
@@ -877,9 +959,11 @@
           ringGeo,
           new THREE.MeshBasicMaterial({
             map: ringTex, transparent: true, side: THREE.DoubleSide,
-            depthWrite: false, opacity: 0.96
+            depthWrite: false, opacity: 0.96,
+            blending: THREE.AdditiveBlending
           })
         );
+        ringTex.wrapS = THREE.RepeatWrapping;
         ringMesh.rotation.x = -Math.PI / 2 + 0.42;
         group.add(ringMesh);
         p.ringMesh = ringMesh;
@@ -890,7 +974,7 @@
         var uRing = new THREE.Mesh(
           new THREE.RingGeometry(p.r * 1.35 * 1.65, p.r * 1.35 * 2.0, 64),
           new THREE.MeshBasicMaterial({
-            color: 0x9fd8e2, transparent: true, opacity: 0.22,
+            color: 0xbfeaf2, transparent: true, opacity: 0.4,
             side: THREE.DoubleSide, depthWrite: false
           })
         );
@@ -1954,9 +2038,13 @@
           p.body.material.map.offset.x =
             (p.body.material.map.offset.x + p.texFlow * dt * PARAMS.timeScale) % 1;
         }
-        /* 土星环：不透明度轻微呼吸（冰晶反光感） */
+        /* 土星环：冰晶反光呼吸 + 环带径向流动（物质在环内迁徙的观感） */
         if (p.ringMesh) {
-          p.ringMesh.material.opacity = 0.9 + Math.sin(now * 0.0009) * 0.06;
+          p.ringMesh.material.opacity = 0.88 + Math.sin(now * 0.0009) * 0.08;
+          if (p.ringMesh.material.map) {
+            p.ringMesh.material.map.offset.x =
+              Math.sin(now * 0.00025) * 0.035;
+          }
         }
 
         if (p.atmoShell) {
