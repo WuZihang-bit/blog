@@ -26,6 +26,8 @@
 
   if (!window.Solar3D) return;
   var REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var IS_LIKE_MOBILE = window.innerWidth < 768 ||
+    (navigator.maxTouchPoints > 0 && Math.min(window.innerWidth, window.innerHeight) < 900);
 
   /* ======================================================
      一、手势分类核心（纯函数）
@@ -179,7 +181,7 @@
     window.dispatchEvent(new CustomEvent('gesture-' + name, { detail: detail || {} }));
   }
 
-  function onClassified(g, lm, mirrored) {
+  function onClassified(g, lm) {
     if (!g) { updateHud(null); return; }
     var now = performance.now();
     state.lastSeen = now;
@@ -205,14 +207,13 @@
     var px = (lm[4].x + lm[8].x) / 2;
     var py = (lm[4].y + lm[8].y) / 2;
     var tSec = now / 1000;
-    if (mirrored) px = 1 - px;
     var sx = pinchFx.filter(px, tSec);
     var sy = pinchFy.filter(py, tSec);
     var pinchX = Math.round(sx * window.innerWidth);
     var pinchY = Math.round(sy * window.innerHeight);
 
-    /* 食指尖也平滑（point 指针） */
-    var tipX = mirrored ? 1 - lm[8].x : lm[8].x;
+    /* 食指尖（point 指针） */
+    var tipX = lm[8].x;
     var tipY = lm[8].y;
 
     g.confirmed = confirmed;
@@ -226,8 +227,10 @@
         y: Math.round(tipY * window.innerHeight)
       });
     } else if (state.cur === 'open') {
-      var ox = mirrored ? 1 - ((lm[0].x + lm[5].x + lm[17].x) / 3) : (lm[0].x + lm[5].x + lm[17].x) / 3;
-      fireEvent('palmmove', { nx: ox, ny: (lm[0].y + lm[9].y) / 2 });
+      fireEvent('palmmove', {
+        nx: (lm[0].x + lm[5].x + lm[17].x) / 3,
+        ny: (lm[0].y + lm[9].y) / 2
+      });
     }
 
     /* 确认沿（一次性动作，带冷却） */
@@ -353,56 +356,101 @@
 
   async function startCamera() {
     if (camOn) return;
+
+    /* 安全上下文检查：getUserMedia 只在 https/localhost 可用
+       （手机上用 http://IP 访问会静默失败，必须提示） */
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      hud.classList.add('show');
+      hudSay(location.protocol === 'http:'
+        ? '摄像头需要 HTTPS，请用线上地址访问'
+        : '此浏览器不支持摄像头', true);
+      setTimeout(function () { if (!camOn) hud.classList.remove('show'); }, 4000);
+      return;
+    }
+
     try {
       stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: 640, height: 480, facingMode: 'user' }
+        video: {
+          facingMode: 'user',                 /* 手机上前置摄像头 */
+          width: { ideal: 640 },
+          height: { ideal: 480 },
+          frameRate: { ideal: 30, max: 30 }   /* 明确 30fps 上限，省电 */
+        },
+        audio: false
       });
     } catch (err) {
       /* 失败也要让用户看见原因：临时弹出 HUD 显示错误 */
       hud.classList.add('show');
-      hudSay('摄像头不可用：' + (err.name === 'NotAllowedError' ? '权限被拒绝' : err.name || '未知'), true);
-      setTimeout(function () { if (!camOn) hud.classList.remove('show'); }, 3500);
+      var why = err.name === 'NotAllowedError' ? '权限被拒绝（请在浏览器设置中允许）'
+        : err.name === 'NotFoundError' ? '未找到摄像头'
+        : err.name === 'NotReadableError' ? '摄像头被其他应用占用'
+        : err.name || '未知';
+      hudSay('摄像头不可用：' + why, true);
+      setTimeout(function () { if (!camOn) hud.classList.remove('show'); }, 4500);
       return;
     }
     video = document.createElement('video');
     video.srcObject = stream;
     video.muted = true;
-    video.playsInline = true;
-    await video.play();
+    video.playsInline = true;          /* iOS 必需：防全屏接管 */
+    video.setAttribute('playsinline', '');   /* iOS 旧版属性 */
+    video.setAttribute('webkit-playsinline', '');
+    try {
+      await video.play();
+    } catch (e) {
+      /* iOS 偶发 play() 竞态：等一帧再试一次 */
+      await new Promise(function (r) { setTimeout(r, 200); });
+      try { await video.play(); } catch (e2) { /* 继续走，readyState 检查会兜底 */ }
+    }
 
     if (!window.Hands) {
-      /* 加载本地 MediaPipe */
-      await new Promise(function (res, rej) {
-        var s = document.createElement('script');
-        s.src = 'lib/mediapipe/hands.js';
-        s.onload = res;
-        s.onerror = rej;
-        document.head.appendChild(s);
-      }).catch(function () { hudSay('手势引擎加载失败', true); return; });
+      /* 加载本地 MediaPipe（手机首次约 1-2s，加载中给反馈） */
+      hud.classList.add('show');
+      hudSay('手势引擎加载中…');
+      try {
+        await new Promise(function (res, rej) {
+          var s = document.createElement('script');
+          s.src = 'lib/mediapipe/hands.js';
+          s.onload = res;
+          s.onerror = rej;
+          document.head.appendChild(s);
+        });
+      } catch (e) {
+        hudSay('手势引擎加载失败（检查网络后重试）', true);
+        setTimeout(function () { if (!camOn) hud.classList.remove('show'); }, 4000);
+        return;
+      }
     }
 
     hands = new window.Hands({ locateFile: locateFile });
     hands.setOptions({
       maxNumHands: 2,
-      modelComplexity: 1,
+      /* 手机 GPU 弱：轻量模型（0）在手机上更快且精度足够 */
+      modelComplexity: IS_LIKE_MOBILE ? 0 : 1,
       minDetectionConfidence: 0.6,
-      minTrackingConfidence: 0.55
+      minTrackingConfidence: 0.55,
+      selfieMode: true                /* 输出镜像坐标，省去手动翻转 */
     });
     hands.onResults(onResults);
 
     camOn = true;
     btn.classList.add('on');
     hud.classList.add('show');
-    hudSay('手势识别已开启 ✋');
+    hudSay('手势识别已开启 ✋ 抬手到镜头前');
 
-    /* 采集循环（rAF 节流到 ~30fps） */
+    /* 采集循环：手机用 setTimeout 固定 15fps（省电且 WASM 推理更稳），
+       桌面保持 rAF 30fps */
     var lastSend = 0;
+    var MOBILE_CAM = IS_LIKE_MOBILE || window.innerWidth < 768;
+    var SEND_GAP = MOBILE_CAM ? 66 : 33;
     var loop = function () {
       if (!camOn) return;
       var t = performance.now();
-      if (t - lastSend > 33 && video.readyState >= 2) {
+      if (t - lastSend > SEND_GAP && video.readyState >= 2) {
         lastSend = t;
-        hands.send({ image: video });
+        try {
+          hands.send({ image: video });
+        } catch (e) { /* WASM 偶发忙，跳帧即可 */ }
       }
       requestAnimationFrame(loop);
     };
@@ -481,13 +529,13 @@
 
     var mainLm = pickMainHand(lms);
     lm8Cache = mainLm[8];
-    var g = classifyHand(mainLm, true);
-    onClassified(g, mainLm, true);
+    var g = classifyHand(mainLm, false);
+    onClassified(g, mainLm);
 
     /* 双手捏合 → 缩放（自由模式） */
     if (lms.length > 1) {
       var other = lms[0] === mainLm ? lms[1] : lms[0];
-      var g2 = classifyHand(other, true);
+      var g2 = classifyHand(other, false);
       if (g && g.type === 'pinch' && g2 && g2.type === 'pinch') {
         var d = dist(mainLm[4], other[4]);
         if (twoHandRef == null) twoHandRef = d;
@@ -605,8 +653,8 @@
       for (var c = 0; c < CONNECTIONS.length; c++) {
         var a = lm[CONNECTIONS[c][0]], b = lm[CONNECTIONS[c][1]];
         ghCtx.beginPath();
-        ghCtx.moveTo((1 - a.x) * w, a.y * h);
-        ghCtx.lineTo((1 - b.x) * w, b.y * h);
+        ghCtx.moveTo(a.x * w, a.y * h);
+        ghCtx.lineTo(b.x * w, b.y * h);
         ghCtx.stroke();
       }
       /* 关键点：指尖亮 */
@@ -614,7 +662,7 @@
         var isTip = (k === 4 || k === 8 || k === 12 || k === 16 || k === 20);
         ghCtx.fillStyle = isTip ? '#a5f3fc' : 'rgba(196,181,253,0.9)';
         ghCtx.beginPath();
-        ghCtx.arc((1 - lm[k].x) * w, lm[k].y * h, isTip ? 3 : 2, 0, 6.2832);
+        ghCtx.arc(lm[k].x * w, lm[k].y * h, isTip ? 3 : 2, 0, 6.2832);
         ghCtx.fill();
       }
       /* 捏合指示圈 */
@@ -623,7 +671,7 @@
         ghCtx.strokeStyle = pinD < 0.35 ? '#67e8f9' : 'rgba(103,232,249,0.4)';
         ghCtx.lineWidth = 2;
         ghCtx.beginPath();
-        ghCtx.arc((1 - lm[4].x) * w, lm[4].y * h, 10, 0, 6.2832);
+        ghCtx.arc(lm[4].x * w, lm[4].y * h, 10, 0, 6.2832);
         ghCtx.stroke();
       }
     }
