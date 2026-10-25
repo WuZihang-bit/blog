@@ -1018,7 +1018,15 @@
        3D 引擎自身已有程序化贴图兜底（solar3d.js）。 */
   }
 
+  var bgLastRender = 0;
+
   function tick(now) {
+    /* 星场同样限 45fps（22ms），与 3D 引擎对齐 */
+    if (now - bgLastRender < 22) {
+      raf = requestAnimationFrame(tick);
+      return;
+    }
+    bgLastRender = now;
     /* 单帧出错时记录并保活循环，避免整个背景死掉 */
     try {
       frame(now);

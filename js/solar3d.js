@@ -2318,8 +2318,16 @@
 
   var lastFrameAt = 0;
 
+  /* 帧率上限 45fps（22ms）：GPU 减压，慢速运动的太阳系视觉无差 */
+  var lastRenderAt = 0;
+
   function tick(now) {
-    var dt = Math.min((now - lastT) / 1000 || 0.016, 1 / 30);
+    if (now - lastRenderAt < 22) {
+      raf = requestAnimationFrame(tick);
+      return;
+    }
+    lastRenderAt = now;
+    var dt = Math.min((now - lastT) / 1000 || 0.022, 1 / 20);
     lastT = now;
     lastFrameAt = performance.now();
     try {
