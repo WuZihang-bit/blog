@@ -410,6 +410,38 @@ body.flight-mode * {
   font-size: 16.5px;
 }
 
+/* 首页数据条：文章 / 标签 / 站龄 */
+.hero-stats {
+  display: flex;
+  gap: 34px;
+  margin-top: 26px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+
+.hero-stats .stat {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.hero-stats .stat b {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  background: var(--grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.hero-stats .stat span {
+  font-size: 12px;
+  letter-spacing: 3px;
+  color: var(--text-tertiary);
+}
+
 .hero-more {
   margin-top: 22px;
 }
@@ -1887,6 +1919,95 @@ body.tune-open .post-item {
 body:has(#copilot.open) .float-toggle,
 body:has(#copilot.open) .flight-toggle {
   opacity: 0.35;
+}
+
+/* ---------- 留言板 & 评论区 ---------- */
+
+.msg-hero {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 40px;
+}
+
+@media (max-width: 680px) {
+  .msg-hero { grid-template-columns: 1fr; }
+}
+
+.msg-card {
+  padding: 22px 24px;
+  background: var(--bg-glass);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  backdrop-filter: blur(14px) saturate(140%);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--shadow-card);
+}
+
+.msg-card h2 {
+  margin: 0 0 10px;
+  font-size: 16px;
+  letter-spacing: 1px;
+}
+
+.msg-card ul {
+  margin: 0;
+  padding-left: 1.4em;
+  color: var(--text-secondary);
+  font-size: 14.5px;
+}
+
+.msg-card li { margin: 6px 0; }
+
+.msg-card p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 14.5px;
+}
+
+.msg-card b { color: var(--text); }
+
+.msg-wall-title,
+.post-comments h2 {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 34px 0 16px;
+  font-size: 15px;
+  letter-spacing: 3px;
+  color: var(--text-secondary);
+}
+
+.msg-wall-title::after,
+.post-comments h2::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, var(--border-strong), transparent);
+}
+
+.giscus-box {
+  min-height: 80px;
+  padding: 6px 0 10px;
+  border-radius: 14px;
+}
+
+.cm-pending {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 26px 24px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 14px;
+  color: var(--text-tertiary);
+  font-size: 13.5px;
+  text-align: center;
+}
+
+.cm-pending b {
+  color: var(--text-secondary);
+  font-size: 14.5px;
+  letter-spacing: 2px;
 }
 
 /* ---------- 响应式 ---------- */

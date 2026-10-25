@@ -67,6 +67,10 @@
     if (/时间.{0,3}(正常|恢复)/.test(t)) return { type: 'sys', act: 'time', value: 1 };
     if (/自由模式/.test(t)) return { type: 'sys', act: 'mouse', value: 'free' };
     if (/选中模式/.test(t)) return { type: 'sys', act: 'mouse', value: 'select' };
+    if (/(引力场|时空弯曲|弯曲网格)/.test(t)) {
+      var gvOn = !/(关闭|关掉|取消|隐藏)/.test(t);
+      return { type: 'sys', act: 'grav', value: gvOn };
+    }
 
     if (/(停止|取消|停下|别飞|stop|cancel)/i.test(t)) return { type: 'cancel' };
 
@@ -103,27 +107,34 @@
      ====================================================== */
 
   var SYSTEM_PROMPT = [
-    '你是飞船副驾驶的规划器。把用户指令转成 JSON 命令数组，只输出 JSON，不要任何其他文字。',
-    '可用命令：',
+    '你是「深空站」飞船副驾驶兼博客问答助手。用户的话分两类处理，只输出 JSON，不要任何其他文字。',
+    '',
+    '【A. 飞船/系统指令】输出命令数组（可多步，按执行顺序，最多 5 步）：',
     '{"type":"goto","target":"行星中文名"} 直飞某行星',
     '{"type":"orbit","target":"行星中文名","revolutions":1到9} 环绕某行星',
     '{"type":"chase"} 追踪最近的碎块',
-    '{"type":"slingshot","target":"目标行星"} 引力弹弓航线（自动经大行星借力）',
+    '{"type":"slingshot","target":"目标行星"} 引力弹弓航线',
     '{"type":"cancel"} 停止当前动作',
     '{"type":"query","q":"speed|pos|dist","target":"行星中文名(dist时填)"} 查询遥测',
     '{"type":"sys","act":"reset"} 还原太阳系',
     '{"type":"sys","act":"render","value":"wire|points|solid"} 渲染模式',
     '{"type":"sys","act":"time","value":数字} 时间流速倍率',
     '{"type":"sys","act":"mouse","value":"free|select"} 鼠标模式',
+    '{"type":"sys","act":"grav","value":true} 开关引力场可视化',
+    '',
+    '【B. 问答/闲聊/知识】（问知识、问博客、问「怎么看/为什么/是什么」、打招呼）输出单个对象：',
+    '{"type":"say","text":"回答，120字内，口语化，可用emoji"}',
+    '',
     '规则：',
-    '1. 行星只用这八个中文名：水星 金星 地球 火星 木星 土星 天王星 海王星（太阳不能直飞，想看太阳就飞水星）。',
-    '2. 复杂诉求拆成多步命令，按执行顺序排列，最多 5 步。',
-    '3. 「借力/弹弓」直接用 slingshot，不要额外加 goto。',
-    '4. 用户问距离/速度/位置时用 query。',
+    '1. 行星只用这八个中文名：水星 金星 地球 火星 木星 土星 天王星 海王星（太阳不能直飞）。',
+    '2. 复合指令拆多步；「借力/弹弓」直接用 slingshot 不加 goto。',
+    '3. 模糊两可时优先理解为问答（say）。',
+    '4. 回答可利用博客背景：作者吴子航是电子科大学生，方向金融后端×大模型，站内有太阳系引力沙盒。',
     '示例：',
     '「带我去土星」→ [{"type":"goto","target":"土星"}]',
-    '「先去木星然后借力去海王星绕两圈」→ [{"type":"slingshot","target":"海王星"},{"type":"orbit","target":"海王星","revolutions":2}]',
-    '「现在距离火星多远」→ [{"type":"query","q":"dist","target":"火星"}]'
+    '「木星大红斑是什么」→ {"type":"say","text":"大红斑是木星大气中持续了至少350年的反气旋风暴，直径能装下整个地球。想看的话说『带我去木星』就行 🪐"}',
+    '「现在距离火星多远」→ [{"type":"query","q":"dist","target":"火星"}]',
+    '「先去木星然后借力去海王星绕两圈」→ [{"type":"slingshot","target":"海王星"},{"type":"orbit","target":"海王星","revolutions":2}]'
   ].join('\n');
 
   function llmPlan(text, lastTarget) {
@@ -158,11 +169,7 @@
       .then(function (data) {
         var content = data.choices && data.choices[0] &&
           data.choices[0].message && data.choices[0].message.content || '';
-        var m = content.match(/\[[\s\S]*\]/);
-        if (!m) throw new Error('no json array');
-        var cmds = JSON.parse(m[0]);
-        if (!Array.isArray(cmds)) throw new Error('not array');
-        return cmds.slice(0, 5).map(normalizeCmd).filter(Boolean);
+        return llmParsePayload(content);
       })
       .finally(function () { clearTimeout(timer); });
   }
@@ -194,7 +201,7 @@
       return qq;
     }
     if (c.type === 'sys') {
-      var act = ['reset', 'render', 'time', 'mouse'].indexOf(c.act) >= 0 ? c.act : null;
+      var act = ['reset', 'render', 'time', 'mouse', 'grav'].indexOf(c.act) >= 0 ? c.act : null;
       if (!act) return null;
       var o = { type: 'sys', act: act };
       if (act === 'render' && ['wire', 'points', 'solid'].indexOf(c.value) >= 0) o.value = c.value;
@@ -202,9 +209,32 @@
         var v = parseFloat(c.value);
         o.value = isNaN(v) ? 1 : Math.max(0.1, Math.min(5, v));
       } else if (act === 'mouse' && ['free', 'select'].indexOf(c.value) >= 0) o.value = c.value;
+      else if (act === 'grav') o.value = !!c.value;
       return o;
     }
     return { type: 'cancel' };
+  }
+
+  /* say 对象（问答/闲聊）：LLM 可能返回对象而非数组 */
+  function normalizeSay(c) {
+    if (!c || !c.text || typeof c.text !== 'string') return null;
+    return { type: 'say', text: c.text.slice(0, 200) };
+  }
+
+  function llmParsePayload(content) {
+    /* 优先匹配数组（命令序列），其次单个对象（say） */
+    var arr = content.match(/\[[\s\S]*\]/);
+    if (arr) {
+      var cmds = JSON.parse(arr[0]);
+      if (!Array.isArray(cmds)) throw new Error('not array');
+      return cmds.slice(0, 5).map(normalizeCmd).filter(Boolean);
+    }
+    var obj = content.match(/\{[\s\S]*\}/);
+    if (obj) {
+      var say = normalizeSay(JSON.parse(obj[0]));
+      if (say) return [say];
+    }
+    throw new Error('no json');
   }
 
   /* 本地降级规划：按连接词拆句 */
@@ -253,6 +283,10 @@
         window.Solar3D.PARAMS.mouseMode = cmd.value;
         return cmd.value === 'free' ? '已切自由模式（拖拽旋转 · 滚轮缩放）' : '已切选中模式';
       }
+      if (cmd.act === 'grav' && window.Solar3D.toggleGravField) {
+        var on = window.Solar3D.toggleGravField(!!cmd.value);
+        return on ? '引力场可视化：开（时空弯曲网格）' : '引力场可视化：关';
+      }
     }
     return null;
   }
@@ -282,6 +316,8 @@
 
   function step(cmd) {
     if (cmd.type === 'query') return { msg: runQuery(cmd) };
+
+    if (cmd.type === 'say') return { msg: cmd.text, spoken: true };
 
     if (cmd.type === 'cancel') {
       agent.queue = [];
@@ -313,6 +349,13 @@
 
     agent.queue.shift();
     agent.done += 1;
+
+    if (res.spoken) {
+      /* 知识问答：对话式展示，无编号 */
+      agent.busy = false;
+      say(res.msg);
+      return;
+    }
 
     if (res.async) {
       say('[' + agent.done + '/' + agent.total + '] ' + res.msg);

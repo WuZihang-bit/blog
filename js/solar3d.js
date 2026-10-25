@@ -406,7 +406,7 @@
   scene.add(beltGroup);
 
   var beltRocks = [];   // { instIdx, mesh, a, r, w, tilt, ph, selfRot, scl }
-  (function buildBelt() {
+  function buildBelt() {
     var COUNT = 420;
     var inst = new THREE.InstancedMesh(
       rockGeos[1],
@@ -453,7 +453,7 @@
     }
     inst.instanceMatrix.needsUpdate = true;
     beltGroup.userData.inst = inst;
-  })();
+  }
 
   var BELT_M = new THREE.Matrix4();
   var BELT_Q = new THREE.Quaternion();
@@ -809,6 +809,9 @@
   });
   var fragHitMat = new THREE.MeshBasicMaterial({ visible: false });
   var fragments = [];   // { mesh, r, mass, pos, vel, grabbed, tgt, gv }
+
+  /* 岩石几何与材质就绪后再铺设小行星带 */
+  buildBelt();
 
   function addFragment(pos, vel, r, mass) {
     if (fragments.length >= MAX_FRAGS) {

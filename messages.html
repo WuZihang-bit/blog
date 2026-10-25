@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>留言板 · 吴子航的博客</title>
+  <meta name="description" content="给吴子航留言：问题、建议、想看的内容，或者随便聊聊。">
+  <meta property="og:title" content="留言板 · 吴子航的博客">
+  <meta property="og:description" content="给吴子航留言：问题、建议、想看的内容，或者随便聊聊。">
+  <meta property="og:type" content="website">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg?v=20261019">
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem('theme');
+        if (t === 'dark' || (!t && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+          document.documentElement.dataset.theme = 'dark';
+        }
+      } catch (e) {}
+    })();
+  </script>
+  <link rel="stylesheet" href="css/style.css?v=20261019">
+</head>
+<body>
+
+  <canvas id="bg-canvas" class="bg-canvas" aria-hidden="true"></canvas>
+
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="site-title" href="index.html" aria-label="吴子航的博客">Blog<span class="wm-dot" aria-hidden="true"></span></a>
+      <nav class="site-nav" aria-label="主导航">
+        <a href="index.html">首页</a>
+        <a href="archive.html">归档</a>
+        <a href="tags.html">标签</a>
+        <a href="about.html">关于</a>
+        <a href="messages.html">留言</a>
+        <a href="messages.html" aria-current="page">留言</a>
+        <button id="theme-toggle" class="theme-toggle" type="button" aria-label="切换深浅色主题" title="切换深浅色主题">
+          <svg class="icon-moon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          <svg class="icon-sun" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <div class="page-header">
+      <h1 class="grad-text">留言板</h1>
+      <p>问题、建议、想看的内容，或者随便聊聊 —— 我都会回。</p>
+    </div>
+
+    <section class="content msg-content">
+      <div class="msg-hero">
+        <div class="msg-card">
+          <h2>📮 如何互动</h2>
+          <ul>
+            <li><strong>留言</strong>：下方评论区用 GitHub 账号登录即可发言，支持 Markdown、表情回应</li>
+            <li><strong>作者回复</strong>：你的留言会进入 GitHub Discussions，我回复后这里实时同步显示</li>
+            <li><strong>悄悄话</strong>：商务或私人话题请走关于页的邮箱</li>
+          </ul>
+        </div>
+        <div class="msg-card">
+          <h2>✦ AI 先答一嘴</h2>
+          <p>常见问题可以先问首页右上角的 <b>✦ AI 副驾驶</b>——它懂这个博客和太阳系的一切，
+          也可以帮你规划飞船航线。问倒了它再留言给人类（我）。</p>
+        </div>
+      </div>
+
+      <h2 class="msg-wall-title">留言墙</h2>
+      <div id="giscus-box" class="giscus-box" data-giscus-mapping="specific" data-giscus-term="留言板"></div>
+    </section>
+
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <nav class="footer-nav" aria-label="页脚导航">
+        <a href="index.html">首页</a>
+        <a href="archive.html">归档</a>
+        <a href="tags.html">标签</a>
+        <a href="about.html">关于</a>
+        <a href="messages.html">留言</a>
+        <a href="messages.html">留言</a>
+      </nav>
+      <p>© 2026 吴子航 · 手写 HTML · 星海粒子背景</p>
+      <p class="footer-motto">保持学习 · 保持记录</p>
+    </div>
+  </footer>
+
+  <script src="js/background.js?v=20261019"></script>
+  <script src="js/main.js?v=20261019"></script>
+  <script src="js/comments.js?v=20261019"></script>
+</body>
+</html>

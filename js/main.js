@@ -95,6 +95,15 @@
     });
   }
 
+  /* ---------- 站龄自动计算 ---------- */
+
+  var daysEl = document.getElementById('stat-days');
+  if (daysEl) {
+    var LAUNCH = new Date('2026-10-18');
+    var d = Math.max(1, Math.floor((Date.now() - LAUNCH) / 86400000) + 1);
+    daysEl.textContent = d;
+  }
+
   /* ---------- 文章页阅读进度条 ---------- */
 
   var postContent = document.querySelector('.post-content');
