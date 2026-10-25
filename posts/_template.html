@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<!--
+  ★ 文章模板（本文件不会被当作正式文章，发新文章时复制它）★
+
+  复制为 posts/你的文章名.html（文件名用英文短横线），然后依次修改：
+  1. <title>、meta description、og:title / og:description —— 摘要写一两句话
+  2. article:published_time 与正文里的 <time> —— 同一个日期
+  3. 阅读时长（约 X 分钟，按 300 字/分钟估算）
+  4. <h1> 标题和正文内容
+  5. 文末标签链接（href 里的 tag-xxx 必须与 tags.html 里的 section id 对应）
+  6. 「上一篇」链接指向发布时最新的那篇文章
+
+  写完后按根目录 PUBLISH.md 更新 index / archive / tags 三个列表页。
+-->
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>文章标题 · 吴子航的博客</title>
+  <meta name="description" content="一两句话的文章摘要，会显示在搜索结果和社交分享卡片里。">
+  <meta property="og:title" content="文章标题">
+  <meta property="og:description" content="一两句话的文章摘要，会显示在搜索结果和社交分享卡片里。">
+  <meta property="og:type" content="article">
+  <meta property="article:published_time" content="2026-10-19">
+  <link rel="icon" type="image/svg+xml" href="../favicon.svg?v=20261019">
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem('theme');
+        if (t === 'dark' || (!t && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+          document.documentElement.dataset.theme = 'dark';
+        }
+      } catch (e) {}
+    })();
+  </script>
+  <link rel="stylesheet" href="../css/style.css?v=20261019">
+</head>
+<body>
+
+  <canvas id="bg-canvas" class="bg-canvas" aria-hidden="true"></canvas>
+
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="site-title" href="../index.html" aria-label="吴子航的博客">Blog<span class="wm-dot" aria-hidden="true"></span></a>
+      <nav class="site-nav" aria-label="主导航">
+        <a href="../index.html">首页</a>
+        <a href="../archive.html">归档</a>
+        <a href="../tags.html">标签</a>
+        <a href="../about.html">关于</a>
+        <button id="theme-toggle" class="theme-toggle" type="button" aria-label="切换深浅色主题" title="切换深浅色主题">
+          <svg class="icon-moon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          <svg class="icon-sun" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <article>
+      <header class="post-header">
+        <div class="post-meta">
+          <time datetime="2026-10-19">2026-10-19</time>
+          <span class="dot">·</span>
+          <span>约 X 分钟</span>
+        </div>
+        <h1>文章标题</h1>
+      </header>
+
+      <div class="post-content">
+
+        <p>正文从这里开始，第一段把要讲的事情说清楚。</p>
+
+        <h2>小节标题</h2>
+        <p>普通段落。行内代码像 <code>这样</code>，链接像<a href="../about.html">这样</a>。</p>
+
+        <blockquote>
+          <p>引用一段话。</p>
+        </blockquote>
+
+        <ul>
+          <li>列表项一；</li>
+          <li>列表项二。</li>
+        </ul>
+
+        <pre><code class="language-java">// 代码块：language-xxx 写语言名，js/main.js 会自动做轻量高亮
+public class Demo {
+    public static void main(String[] args) {
+        System.out.println("hello blog");
+    }
+}</code></pre>
+
+      </div>
+
+      <footer class="post-footer">
+        <div class="tags">
+          <a class="meta-tag" href="../tags.html#tag-xxx">标签名</a>
+        </div>
+        <nav class="post-nav" aria-label="上下篇导航">
+          <a href="上一篇的文件名.html">
+            <span class="post-nav-label">上一篇</span>
+            <span class="post-nav-title">上一篇的标题</span>
+          </a>
+        </nav>
+      </footer>
+    </article>
+
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <nav class="footer-nav" aria-label="页脚导航">
+        <a href="../index.html">首页</a>
+        <a href="../archive.html">归档</a>
+        <a href="../tags.html">标签</a>
+        <a href="../about.html">关于</a>
+      </nav>
+      <p>© 2026 吴子航 · 手写 HTML · 星海粒子背景</p>
+      <p class="footer-motto">保持学习 · 保持记录</p>
+    </div>
+  </footer>
+
+  <script src="../js/background.js?v=20261019"></script>
+  <script src="../js/main.js?v=20261019"></script>
+</body>
+</html>

@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>标签 · 吴子航的博客</title>
+  <meta name="description" content="按主题浏览吴子航的博客文章。">
+  <meta property="og:title" content="标签 · 吴子航的博客">
+  <meta property="og:description" content="按主题浏览全部文章。">
+  <meta property="og:type" content="website">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg?v=20261019">
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem('theme');
+        if (t === 'dark' || (!t && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+          document.documentElement.dataset.theme = 'dark';
+        }
+      } catch (e) {}
+    })();
+  </script>
+  <link rel="stylesheet" href="css/style.css?v=20261019">
+</head>
+<body>
+
+  <canvas id="bg-canvas" class="bg-canvas" aria-hidden="true"></canvas>
+
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="site-title" href="tags.html" aria-label="吴子航的博客">Blog<span class="wm-dot" aria-hidden="true"></span></a>
+      <nav class="site-nav" aria-label="主导航">
+        <a href="index.html">首页</a>
+        <a href="archive.html">归档</a>
+        <a href="tags.html" aria-current="page">标签</a>
+        <a href="about.html">关于</a>
+        <button id="theme-toggle" class="theme-toggle" type="button" aria-label="切换深浅色主题" title="切换深浅色主题">
+          <svg class="icon-moon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          <svg class="icon-sun" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <div class="page-header">
+      <h1 class="grad-text">标签</h1>
+      <p>按主题浏览文章。</p>
+    </div>
+
+    <section class="content">
+
+      <nav class="tag-index" aria-label="标签索引">
+        <a href="#tag-essay">随笔</a>
+        <a href="#tag-blog">博客</a>
+        <a href="#tag-java">Java</a>
+        <a href="#tag-spring">Spring Boot</a>
+        <a href="#tag-backend">后端</a>
+        <a href="#tag-llm">LLM</a>
+        <a href="#tag-agent">Agent</a>
+        <a href="#tag-project">项目</a>
+        <a href="#tag-life">生活</a>
+      </nav>
+
+      <section class="tag-section" id="tag-essay">
+        <h2>随笔 <span class="count">2 篇</span></h2>
+        <ul>
+          <li><a href="posts/hello-world.html">博客上线：重新开始写字</a></li>
+          <li><a href="posts/september-notes.html">九月小结：把节奏找回来</a></li>
+        </ul>
+      </section>
+
+      <section class="tag-section" id="tag-blog">
+        <h2>博客 <span class="count">1 篇</span></h2>
+        <ul>
+          <li><a href="posts/hello-world.html">博客上线：重新开始写字</a></li>
+        </ul>
+      </section>
+
+      <section class="tag-section" id="tag-java">
+        <h2>Java <span class="count">1 篇</span></h2>
+        <ul>
+          <li><a href="posts/spring-transaction.html">Spring Boot 事务失效的六种常见场景</a></li>
+        </ul>
+      </section>
+
+      <section class="tag-section" id="tag-spring">
+        <h2>Spring Boot <span class="count">1 篇</span></h2>
+        <ul>
+          <li><a href="posts/spring-transaction.html">Spring Boot 事务失效的六种常见场景</a></li>
+        </ul>
+      </section>
+
+      <section class="tag-section" id="tag-backend">
+        <h2>后端 <span class="count">1 篇</span></h2>
+        <ul>
+          <li><a href="posts/spring-transaction.html">Spring Boot 事务失效的六种常见场景</a></li>
+        </ul>
+      </section>
+
+      <section class="tag-section" id="tag-llm">
+        <h2>LLM <span class="count">1 篇</span></h2>
+        <ul>
+          <li><a href="posts/persona-agent.html">给 QQ 群做一个有「人设」的 AI Agent</a></li>
+        </ul>
+      </section>
+
+      <section class="tag-section" id="tag-agent">
+        <h2>Agent <span class="count">1 篇</span></h2>
+        <ul>
+          <li><a href="posts/persona-agent.html">给 QQ 群做一个有「人设」的 AI Agent</a></li>
+        </ul>
+      </section>
+
+      <section class="tag-section" id="tag-project">
+        <h2>项目 <span class="count">1 篇</span></h2>
+        <ul>
+          <li><a href="posts/persona-agent.html">给 QQ 群做一个有「人设」的 AI Agent</a></li>
+        </ul>
+      </section>
+
+      <section class="tag-section" id="tag-life">
+        <h2>生活 <span class="count">1 篇</span></h2>
+        <ul>
+          <li><a href="posts/september-notes.html">九月小结：把节奏找回来</a></li>
+        </ul>
+      </section>
+
+    </section>
+
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <nav class="footer-nav" aria-label="页脚导航">
+        <a href="index.html">首页</a>
+        <a href="archive.html">归档</a>
+        <a href="tags.html">标签</a>
+        <a href="about.html">关于</a>
+      </nav>
+      <p>© 2026 吴子航 · 手写 HTML · 星海粒子背景</p>
+      <p class="footer-motto">保持学习 · 保持记录</p>
+    </div>
+  </footer>
+
+  <script src="js/background.js?v=20261019"></script>
+  <script src="js/main.js?v=20261019"></script>
+</body>
+</html>

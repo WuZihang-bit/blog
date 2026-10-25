@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>博客上线：重新开始写字 · 吴子航的博客</title>
+  <meta name="description" content="为什么在 2026 年还要自己搭一个博客，以及这个零框架、纯手写 HTML/CSS 的小站会承载些什么。">
+  <meta property="og:title" content="博客上线：重新开始写字">
+  <meta property="og:description" content="为什么在 2026 年还要自己搭一个博客，以及这个零框架、纯手写 HTML/CSS 的小站会承载些什么。">
+  <meta property="og:type" content="article">
+  <meta property="article:published_time" content="2026-10-18">
+  <link rel="icon" type="image/svg+xml" href="../favicon.svg?v=20261019">
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem('theme');
+        if (t === 'dark' || (!t && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+          document.documentElement.dataset.theme = 'dark';
+        }
+      } catch (e) {}
+    })();
+  </script>
+  <link rel="stylesheet" href="../css/style.css?v=20261019">
+</head>
+<body>
+
+  <canvas id="bg-canvas" class="bg-canvas" aria-hidden="true"></canvas>
+
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="site-title" href="../index.html" aria-label="吴子航的博客">Blog<span class="wm-dot" aria-hidden="true"></span></a>
+      <nav class="site-nav" aria-label="主导航">
+        <a href="../index.html">首页</a>
+        <a href="../archive.html">归档</a>
+        <a href="../tags.html">标签</a>
+        <a href="../about.html">关于</a>
+        <button id="theme-toggle" class="theme-toggle" type="button" aria-label="切换深浅色主题" title="切换深浅色主题">
+          <svg class="icon-moon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          <svg class="icon-sun" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <article>
+      <header class="post-header">
+        <div class="post-meta">
+          <time datetime="2026-10-18">2026-10-18</time>
+          <span class="dot">·</span>
+          <span>约 4 分钟</span>
+        </div>
+        <h1>博客上线：重新开始写字</h1>
+      </header>
+
+      <div class="post-content">
+
+        <p>这是本博客的第一篇文章。在人人都在刷短视频、发动态的 2026 年，我决定反过来，搭一个自己的博客，重新开始长篇幅地写字。</p>
+
+        <h2>为什么要搭博客</h2>
+        <p>理由其实很朴素：输出倒逼输入。学的东西如果不写下来，过两个月就只剩一个模糊的印象；踩过的坑如果不记录，下次大概率原样再踩一遍。笔记软件里的东西是写给自己的，而博客是公开的——想到「有人可能会看到」，写字时就会多一分认真。</p>
+        <blockquote>
+          <p>所谓学习，就是把别人的东西嚼碎了讲清楚给自己听；所谓掌握，就是再讲清楚给别人听。</p>
+        </blockquote>
+
+        <h2>为什么不用框架</h2>
+        <p>现在搭博客太方便了：Hexo、Hugo、Astro 一行命令就能起一个。但我最后选择了纯手写 HTML 和 CSS，理由有三：</p>
+        <ul>
+          <li><strong>没有依赖</strong>：不装 Node、不跑构建，双击 <code>index.html</code> 就能看，部署到任何静态托管上都行；</li>
+          <li><strong>完全可控</strong>：每一行排版都是自己写的，想改哪里就改哪里，顺便把 CSS 练熟；</li>
+          <li><strong>够用就好</strong>：一个个人博客需要的不过是文章、归档、标签和关于页，手写完全撑得住。</li>
+        </ul>
+
+        <h2>这里会写什么</h2>
+        <ul>
+          <li>技术笔记：Java、Spring、数据库这些后端基础，学明白一块写一块；</li>
+          <li>项目复盘：比如正在做的 QQ 群「人设」Agent，把设计决策和踩坑都摊开来讲；</li>
+          <li>生活随笔：月度小结、读书笔记，给生活留个存档。</li>
+        </ul>
+
+        <h2>排版试验田</h2>
+        <p>这篇文章也顺便充当全站的排版样例，验收一下各种元素的显示效果。比如下面的三级标题：</p>
+
+        <h3>一个三级标题</h3>
+        <p>正文中可以有<code>行内代码</code>、<a href="../about.html">链接</a>，以及一段真正在驱动这个网站的代码——右上角那个深色模式按钮，背后就是这十来行 JavaScript：</p>
+
+        <pre><code class="language-js">// js/main.js —— 深色模式切换
+const toggle = document.getElementById('theme-toggle');
+
+toggle.addEventListener('click', () =&gt; {
+  const next = document.documentElement.dataset.theme === 'dark'
+    ? 'light'
+    : 'dark';
+  document.documentElement.dataset.theme = next;
+  localStorage.setItem('theme', next);
+});</code></pre>
+
+        <p>表格长这样：</p>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>版本</th><th>日期</th><th>变更</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>v1.0</td><td>2026-10-18</td><td>博客上线：首页、归档、标签、关于四个页面</td></tr>
+              <tr><td>v1.1</td><td>计划中</td><td>RSS 订阅、文章内目录</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h2>写给自己</h2>
+        <p>不给自己定「周更」这种必倒的 flag，只定一条：写上来的东西必须是自己真正想明白的。慢一点没关系。</p>
+        <blockquote>
+          <p>种一棵树最好的时间是十年前，其次是现在。</p>
+        </blockquote>
+
+      </div>
+
+      <footer class="post-footer">
+        <div class="tags">
+          <a class="meta-tag" href="../tags.html#tag-essay">随笔</a>
+          <a class="meta-tag" href="../tags.html#tag-blog">博客</a>
+        </div>
+        <nav class="post-nav" aria-label="上下篇导航">
+          <a href="spring-transaction.html">
+            <span class="post-nav-label">上一篇</span>
+            <span class="post-nav-title">Spring Boot 事务失效的六种常见场景</span>
+          </a>
+        </nav>
+      </footer>
+    </article>
+
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <nav class="footer-nav" aria-label="页脚导航">
+        <a href="../index.html">首页</a>
+        <a href="../archive.html">归档</a>
+        <a href="../tags.html">标签</a>
+        <a href="../about.html">关于</a>
+      </nav>
+      <p>© 2026 吴子航 · 手写 HTML · 星海粒子背景</p>
+      <p class="footer-motto">保持学习 · 保持记录</p>
+    </div>
+  </footer>
+
+  <script src="../js/background.js?v=20261019"></script>
+  <script src="../js/main.js?v=20261019"></script>
+</body>
+</html>

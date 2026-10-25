@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Spring Boot 事务失效的六种常见场景 · 吴子航的博客</title>
+  <meta name="description" content="@Transactional 加上了，数据却照样写了一半？整理六个 Spring 事务失效的高频场景，附可复现的代码和修复方式。">
+  <meta property="og:title" content="Spring Boot 事务失效的六种常见场景">
+  <meta property="og:description" content="整理六个 Spring 事务失效的高频场景，附可复现的代码和修复方式。">
+  <meta property="og:type" content="article">
+  <meta property="article:published_time" content="2026-10-12">
+  <link rel="icon" type="image/svg+xml" href="../favicon.svg?v=20261019">
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem('theme');
+        if (t === 'dark' || (!t && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+          document.documentElement.dataset.theme = 'dark';
+        }
+      } catch (e) {}
+    })();
+  </script>
+  <link rel="stylesheet" href="../css/style.css?v=20261019">
+</head>
+<body>
+
+  <canvas id="bg-canvas" class="bg-canvas" aria-hidden="true"></canvas>
+
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="site-title" href="../index.html" aria-label="吴子航的博客">Blog<span class="wm-dot" aria-hidden="true"></span></a>
+      <nav class="site-nav" aria-label="主导航">
+        <a href="../index.html">首页</a>
+        <a href="../archive.html">归档</a>
+        <a href="../tags.html">标签</a>
+        <a href="../about.html">关于</a>
+        <button id="theme-toggle" class="theme-toggle" type="button" aria-label="切换深浅色主题" title="切换深浅色主题">
+          <svg class="icon-moon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          <svg class="icon-sun" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <article>
+      <header class="post-header">
+        <div class="post-meta">
+          <time datetime="2026-10-12">2026-10-12</time>
+          <span class="dot">·</span>
+          <span>约 6 分钟</span>
+        </div>
+        <h1>Spring Boot 事务失效的六种常见场景</h1>
+      </header>
+
+      <div class="post-content">
+
+        <p>这周在做课程项目的转账模块时撞上了经典问题：<code>@Transactional</code> 明明加了，异常也抛了，数据库却照样写入了一半。排查了一晚上，把 <code>Propagation</code>、代理机制和 <code>rollbackFor</code> 的文档翻了一遍，顺手整理出六个事务失效的高频场景——面试爱问，写业务更爱踩。</p>
+
+        <h2>一、方法不是 public</h2>
+        <p>Spring 的事务是基于动态代理实现的，默认只有 <code>public</code> 方法才能被代理拦截。给 <code>private</code> 或 <code>protected</code> 方法加 <code>@Transactional</code>，注解会被静默忽略，不报错、不回滚，是最阴险的一类失效。</p>
+
+        <h2>二、同类内部调用（自调用）</h2>
+        <p>事务藏在代理对象里，而 <code>this.xxx()</code> 调用的是原始对象，绕过了代理——所以被调用方法上的事务注解完全不生效：</p>
+
+        <pre><code class="language-java">@Service
+public class OrderService {
+
+    public void createOrder(Order order) {
+        // this 调用绕过了代理，saveOrder 上的事务不生效
+        this.saveOrder(order);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public void saveOrder(Order order) {
+        orderMapper.insert(order);
+        accountMapper.deduct(order.getAmount());
+    }
+}</code></pre>
+
+        <p>修复方式：把 <code>saveOrder</code> 拆到另一个 Bean 里注入使用，或者通过 <code>AopContext.currentProxy()</code> 拿到代理对象再调用。我自己的原则是干脆不写「事务方法包事务方法」的结构，让事务边界落在 Service 的最外层入口上。</p>
+
+        <h2>三、异常被 try-catch 吞掉</h2>
+        <p>事务回滚的前提是异常穿过了代理。半路把异常 catch 住，代理根本感知不到出过问题：</p>
+
+        <pre><code class="language-java">@Transactional(rollbackFor = Exception.class)
+public void transfer(Long from, Long to, BigDecimal amount) {
+    accountMapper.deduct(from, amount);
+    try {
+        riskClient.check(from);            // 远程风控校验
+    } catch (Exception e) {
+        log.warn("风控校验失败，忽略", e);   // 异常被吞，事务照常提交
+    }
+    accountMapper.add(to, amount);
+}</code></pre>
+
+        <p>如果确实要捕获后继续处理，必须在 catch 里手动标记回滚：</p>
+
+        <pre><code class="language-java">catch (Exception e) {
+    log.warn("风控校验失败，回滚", e);
+    TransactionAspectSupport.currentTransactionStatus()
+            .setRollbackOnly();
+}</code></pre>
+
+        <h2>四、受检异常默认不回滚</h2>
+        <p>这是最容易忽略的一条：默认只有 <code>RuntimeException</code> 和 <code>Error</code> 触发回滚，受检异常（<code>Exception</code> 子类）默认<strong>提交</strong>：</p>
+
+        <pre><code class="language-java">// 默认只回滚 RuntimeException 和 Error
+@Transactional
+public void settle(Bill bill) throws Exception {
+    billMapper.insert(bill);
+    if (bill.isAbnormal()) {
+        throw new Exception("账单异常");   // 不会回滚！
+    }
+}</code></pre>
+
+        <p>解法是把 <code>rollbackFor = Exception.class</code> 写成肌肉记忆，团队里直接约定成代码规范。</p>
+
+        <h2>五、表引擎不支持事务</h2>
+        <p>老项目里常见的坑：MySQL 表用的是 MyISAM 引擎，压根不支持事务，应用层配置得再对也没用。确认方式是看表结构：</p>
+
+        <pre><code class="language-sql">SHOW TABLE STATUS WHERE Name = 't_bill';
+-- Engine 一列如果是 MyISAM，改成 InnoDB：
+ALTER TABLE t_bill ENGINE = InnoDB;</code></pre>
+
+        <h2>六、多线程调用</h2>
+        <p>事务上下文绑定在 <code>ThreadLocal</code> 上，跨线程就丢了。在事务方法里起子线程去写库，那段写入不受外层事务管辖，回滚时它纹丝不动。需要异步写库时，要么让子线程自己开事务，要么改用消息表 + 定时补偿这类最终一致方案。</p>
+
+        <h2>总结</h2>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>场景</th><th>根因</th><th>解法</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>方法非 public</td><td>代理只增强 public 方法</td><td>改 public，或拆 Bean</td></tr>
+              <tr><td>自调用</td><td>this 绕过代理</td><td>拆 Bean / 编程式事务</td></tr>
+              <tr><td>异常被吞</td><td>代理感知不到异常</td><td>重新抛出或 setRollbackOnly</td></tr>
+              <tr><td>受检异常</td><td>默认回滚规则不含 Exception</td><td>rollbackFor = Exception.class</td></tr>
+              <tr><td>MyISAM 表</td><td>引擎不支持事务</td><td>换 InnoDB</td></tr>
+              <tr><td>多线程</td><td>事务上下文不跨线程</td><td>子线程自管事务 / 最终一致</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p>最后记一条通用排查思路：事务失效时，先确认「注解所在方法是否被代理正常拦截」（一、二、六），再确认「异常是否按预期穿过了代理」（三、四），最后看存储层（五）。按这个顺序走，基本十分钟内能定位。</p>
+
+        <blockquote>
+          <p>框架的便利都是明码标价的：不理解注解背后的机制，它失效时你就只能干瞪眼。</p>
+        </blockquote>
+
+      </div>
+
+      <footer class="post-footer">
+        <div class="tags">
+          <a class="meta-tag" href="../tags.html#tag-java">Java</a>
+          <a class="meta-tag" href="../tags.html#tag-spring">Spring Boot</a>
+          <a class="meta-tag" href="../tags.html#tag-backend">后端</a>
+        </div>
+        <nav class="post-nav" aria-label="上下篇导航">
+          <a href="persona-agent.html">
+            <span class="post-nav-label">上一篇</span>
+            <span class="post-nav-title">给 QQ 群做一个有「人设」的 AI Agent</span>
+          </a>
+          <a class="next" href="hello-world.html">
+            <span class="post-nav-label">下一篇</span>
+            <span class="post-nav-title">博客上线：重新开始写字</span>
+          </a>
+        </nav>
+      </footer>
+    </article>
+
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <nav class="footer-nav" aria-label="页脚导航">
+        <a href="../index.html">首页</a>
+        <a href="../archive.html">归档</a>
+        <a href="../tags.html">标签</a>
+        <a href="../about.html">关于</a>
+      </nav>
+      <p>© 2026 吴子航 · 手写 HTML · 星海粒子背景</p>
+      <p class="footer-motto">保持学习 · 保持记录</p>
+    </div>
+  </footer>
+
+  <script src="../js/background.js?v=20261019"></script>
+  <script src="../js/main.js?v=20261019"></script>
+</body>
+</html>

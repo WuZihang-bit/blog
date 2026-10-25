@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>给 QQ 群做一个有「人设」的 AI Agent · 吴子航的博客</title>
+  <meta name="description" content="让群聊机器人不再满嘴客服腔：人设设定、说话时机、长期记忆——一个 QQ 群 Agent 的设计与踩坑记录。">
+  <meta property="og:title" content="给 QQ 群做一个有「人设」的 AI Agent">
+  <meta property="og:description" content="人设设定、说话时机、长期记忆——一个 QQ 群 Agent 的设计与踩坑记录。">
+  <meta property="og:type" content="article">
+  <meta property="article:published_time" content="2026-09-28">
+  <link rel="icon" type="image/svg+xml" href="../favicon.svg?v=20261019">
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem('theme');
+        if (t === 'dark' || (!t && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+          document.documentElement.dataset.theme = 'dark';
+        }
+      } catch (e) {}
+    })();
+  </script>
+  <link rel="stylesheet" href="../css/style.css?v=20261019">
+</head>
+<body>
+
+  <canvas id="bg-canvas" class="bg-canvas" aria-hidden="true"></canvas>
+
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="site-title" href="../index.html" aria-label="吴子航的博客">Blog<span class="wm-dot" aria-hidden="true"></span></a>
+      <nav class="site-nav" aria-label="主导航">
+        <a href="../index.html">首页</a>
+        <a href="../archive.html">归档</a>
+        <a href="../tags.html">标签</a>
+        <a href="../about.html">关于</a>
+        <button id="theme-toggle" class="theme-toggle" type="button" aria-label="切换深浅色主题" title="切换深浅色主题">
+          <svg class="icon-moon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          <svg class="icon-sun" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <article>
+      <header class="post-header">
+        <div class="post-meta">
+          <time datetime="2026-09-28">2026-09-28</time>
+          <span class="dot">·</span>
+          <span>约 5 分钟</span>
+        </div>
+        <h1>给 QQ 群做一个有「人设」的 AI Agent</h1>
+      </header>
+
+      <div class="post-content">
+
+        <p>群里的 AI 机器人都有一个通病：一口标准的客服腔。你问它「今晚吃什么」，它回「您好，关于晚餐的建议如下：一、……」。功能上是对的，体验上是灾难的。于是有了这个项目（代号 Eidolon）：做一个有固定人设、有长期记忆、并且<strong>懂得什么时候该闭嘴</strong>的群聊 Agent。</p>
+
+        <h2>整体设计</h2>
+        <p>一条消息进来之后的处理流程被拆成四步：</p>
+        <ol>
+          <li><strong>监听</strong>：接收集消息，带上发言人昵称和最近的上下文；</li>
+          <li><strong>决策</strong>：先判断「要不要说话」——这是和普通机器人最大的区别；</li>
+          <li><strong>生成</strong>：把人设、相关记忆和上下文拼进 Prompt，生成回复；</li>
+          <li><strong>记忆</strong>：把值得记的信息（谁喜欢什么、发生过什么梗）写进存储。</li>
+        </ol>
+
+        <h2>人设：一份 YAML 说了算</h2>
+        <p>人设不写在代码里，全部抽到配置文件，改性格不用改代码：</p>
+
+        <pre><code class="language-yaml">name: 阿凛
+persona: |
+  你是 QQ 群里的普通大学生「阿凛」，不是助手。
+  说话简短、口语化，偶尔用表情包，不喜欢说教。
+  被问到专业问题时可以认真回答，但不要每次都长篇大论。
+speak_rules:
+  min_interval: 180        # 两次发言至少间隔 3 分钟
+  mention_trigger: true    # 被 @ 时必回
+  hot_words: [考试, 项目, 吃什么]
+memory:
+  store: sqlite
+  top_k: 5</code></pre>
+
+        <p>「要不要说话」的决策逻辑其实很朴素：</p>
+
+        <pre><code class="language-python">def should_speak(msg, state):
+    if msg.mentions_bot:                    # 被 @ 必回
+        return True
+    if now() - state.last_speak &lt; 180:      # 冷却期，装没看见
+        return False
+    return any(w in msg.text for w in state.hot_words)</code></pre>
+
+        <h2>踩过的坑</h2>
+        <ul>
+          <li><strong>人设漂移</strong>：对话轮次一多，模型慢慢变回「您好」腔。现在的缓解办法是每轮都完整重申人设，并在 few-shot 里放两条「反例」回复；</li>
+          <li><strong>记忆检索</strong>：一开始想上向量库，后来发现群聊场景里关键词检索 + 时间衰减已经够用，先把复杂的留给需要的时候；</li>
+          <li><strong>回复太长</strong>：限制生成 token 数，再加一层后处理把长句拆短、砍掉列表式输出——群里没人想读三段小作文；</li>
+          <li><strong>刷屏被踢</strong>：真实的教训。冷却时间从 60 秒提到 180 秒之后，群友们对它的态度从「烦」变成了「偶尔还挺有意思」。</li>
+        </ul>
+
+        <h2>下一步</h2>
+        <p>短期计划三件事：主动发起话题（比如考试周到了主动冒泡）、多群之间保持人格一致、把单条回复的 token 成本压下来。这个项目会拿去参加大创和挑战杯，后续进展会继续写在这里。</p>
+
+        <blockquote>
+          <p>做产品的一部分是做约束：一个什么都回、永远在线的机器人，反而没有人味。</p>
+        </blockquote>
+
+      </div>
+
+      <footer class="post-footer">
+        <div class="tags">
+          <a class="meta-tag" href="../tags.html#tag-llm">LLM</a>
+          <a class="meta-tag" href="../tags.html#tag-agent">Agent</a>
+          <a class="meta-tag" href="../tags.html#tag-project">项目</a>
+        </div>
+        <nav class="post-nav" aria-label="上下篇导航">
+          <a href="september-notes.html">
+            <span class="post-nav-label">上一篇</span>
+            <span class="post-nav-title">九月小结：把节奏找回来</span>
+          </a>
+          <a class="next" href="spring-transaction.html">
+            <span class="post-nav-label">下一篇</span>
+            <span class="post-nav-title">Spring Boot 事务失效的六种常见场景</span>
+          </a>
+        </nav>
+      </footer>
+    </article>
+
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <nav class="footer-nav" aria-label="页脚导航">
+        <a href="../index.html">首页</a>
+        <a href="../archive.html">归档</a>
+        <a href="../tags.html">标签</a>
+        <a href="../about.html">关于</a>
+      </nav>
+      <p>© 2026 吴子航 · 手写 HTML · 星海粒子背景</p>
+      <p class="footer-motto">保持学习 · 保持记录</p>
+    </div>
+  </footer>
+
+  <script src="../js/background.js?v=20261019"></script>
+  <script src="../js/main.js?v=20261019"></script>
+</body>
+</html>

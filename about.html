@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>关于 · 吴子航的博客</title>
+  <meta name="description" content="关于吴子航：电子科技大学在读，方向是金融后端与大模型应用。">
+  <meta property="og:title" content="关于 · 吴子航的博客">
+  <meta property="og:description" content="电子科技大学在读，方向是金融后端与大模型应用。">
+  <meta property="og:type" content="website">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg?v=20261019">
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem('theme');
+        if (t === 'dark' || (!t && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+          document.documentElement.dataset.theme = 'dark';
+        }
+      } catch (e) {}
+    })();
+  </script>
+  <link rel="stylesheet" href="css/style.css?v=20261019">
+</head>
+<body>
+
+  <canvas id="bg-canvas" class="bg-canvas" aria-hidden="true"></canvas>
+
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="site-title" href="about.html" aria-label="吴子航的博客">Blog<span class="wm-dot" aria-hidden="true"></span></a>
+      <nav class="site-nav" aria-label="主导航">
+        <a href="index.html">首页</a>
+        <a href="archive.html">归档</a>
+        <a href="tags.html">标签</a>
+        <a href="about.html" aria-current="page">关于</a>
+        <button id="theme-toggle" class="theme-toggle" type="button" aria-label="切换深浅色主题" title="切换深浅色主题">
+          <svg class="icon-moon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          <svg class="icon-sun" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <div class="page-header">
+      <h1 class="grad-text">关于</h1>
+      <p>写下来才算真的学会。</p>
+    </div>
+
+    <section class="about-panel about-content">
+
+      <h2>关于我</h2>
+      <p>你好，我是吴子航，电子科技大学在读本科生。</p>
+      <p>我对两件事感兴趣：一是金融系统的后端工程——Java、Spring、MySQL、Redis、消息队列这一套，喜欢那种「每一笔钱都必须算对」的严谨；二是大模型在真实场景里的应用——怎么让模型稳定、便宜、不胡说地干活。目前的计划是把这两个方向都学扎实，再看它们在哪里交汇。</p>
+
+      <h2>我在忙什么</h2>
+      <ul>
+        <li><strong>课业</strong>：按部就班地推进，重点补数据库和分布式相关的基础。</li>
+        <li><strong>Eidolon</strong>：一个给 QQ 群做的「人设」Agent 项目，目标是参加大创和挑战杯，<a href="posts/persona-agent.html">项目记录在这里</a>。</li>
+        <li><strong>这个博客</strong>：就是你现在看到的这个站，学习笔记和项目复盘的家。</li>
+      </ul>
+
+      <h2>这个站怎么做的</h2>
+      <p>纯手写的 HTML / CSS / JavaScript：没有框架、没有构建步骤、没有统计脚本，支持深色模式，手机和电脑都能舒服地阅读。第一篇文章里记录了搭建思路：<a href="posts/hello-world.html">博客上线：重新开始写字</a>。</p>
+
+      <h2>找到我</h2>
+      <ul>
+        <li>GitHub：<code>@your-github</code></li>
+        <li>邮箱：<code>hi@example.com</code></li>
+      </ul>
+      <p class="todo-note">（占位信息，记得替换成你自己的 GitHub 和邮箱）</p>
+
+    </section>
+
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <nav class="footer-nav" aria-label="页脚导航">
+        <a href="index.html">首页</a>
+        <a href="archive.html">归档</a>
+        <a href="tags.html">标签</a>
+        <a href="about.html">关于</a>
+      </nav>
+      <p>© 2026 吴子航 · 手写 HTML · 星海粒子背景</p>
+      <p class="footer-motto">保持学习 · 保持记录</p>
+    </div>
+  </footer>
+
+  <script src="js/background.js?v=20261019"></script>
+  <script src="js/main.js?v=20261019"></script>
+</body>
+</html>
