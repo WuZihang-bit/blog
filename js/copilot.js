@@ -409,7 +409,17 @@
       }
     }
 
-    /* LLM 规划 */
+    /* LLM 规划（已确认离线则直接本地规划，不白等超时） */
+    if (llmOnline === false) {
+      var offCmds = localPlan(t);
+      if (!offCmds.length) {
+        say('本地模式听不懂这句，试试快捷指令', true);
+        return;
+      }
+      say('本地模式 · GLM 离线');
+      startQueue(offCmds);
+      return;
+    }
     agent.planning = true;
     say('GLM 正在规划航线…');
     llmPlan(t, agent.lastTarget)
@@ -472,7 +482,7 @@
   box.id = 'copilot';
   box.setAttribute('aria-hidden', 'true');
   box.innerHTML =
-    '<div class="cp-status" id="cp-status">GLM Agent 在线 · 随便说，我来规划：例：先去木星，然后借力去海王星，绕两圈</div>' +
+    '<div class="cp-status" id="cp-status"><span id="cp-online" class="cp-online checking">检测中…</span>随便说，我来规划：例：先去木星，然后借力去海王星，绕两圈</div>' +
     '<form class="cp-row" id="cp-form">' +
       '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/></svg>' +
       '<input id="cp-input" type="text" placeholder="随便说：去看看土星长什么样 / 带我回家 / 追碎块…" autocomplete="off" aria-label="飞船指令">' +
@@ -494,6 +504,51 @@
 
   var statusEl = box.querySelector('#cp-status');
   var input = box.querySelector('#cp-input');
+  var onlineEl = box.querySelector('#cp-online');
+
+  /* ---------- GLM 在线探活：真实调用一次，确定 Agent 形态 ---------- */
+
+  var llmOnline = null;   // null=检测中 true=在线 false=离线
+
+  function setOnlineBadge(on) {
+    llmOnline = on;
+    if (!onlineEl) return;
+    if (on) {
+      onlineEl.textContent = '● GLM 在线';
+      onlineEl.classList.remove('checking', 'off');
+      onlineEl.classList.add('on');
+    } else {
+      onlineEl.textContent = '● 本地模式（GLM 离线，指令照常可用）';
+      onlineEl.classList.remove('checking', 'on');
+      onlineEl.classList.add('off');
+    }
+  }
+
+  (function probeLLM() {
+    var ctrl = new AbortController();
+    var timer = setTimeout(function () { ctrl.abort(); }, 9000);
+    fetch(LLM_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + LLM_KEY
+      },
+      body: JSON.stringify({
+        model: LLM_MODEL,
+        messages: [{ role: 'user', content: 'ping' }],
+        max_tokens: 4
+      }),
+      signal: ctrl.signal
+    })
+      .then(function (r) {
+        clearTimeout(timer);
+        setOnlineBadge(r.ok);
+      })
+      .catch(function () {
+        clearTimeout(timer);
+        setOnlineBadge(false);
+      });
+  })();
 
   function say(msg, bad) {
     statusEl.textContent = msg;

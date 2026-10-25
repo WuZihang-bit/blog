@@ -1813,6 +1813,26 @@ body.tune-open .post-item {
   text-overflow: ellipsis;
 }
 
+/* Agent 在线徽标 */
+#copilot .cp-online {
+  display: inline-block;
+  margin-right: 10px;
+  font-weight: 600;
+}
+
+#copilot .cp-online.checking {
+  color: var(--text-tertiary);
+}
+
+#copilot .cp-online.on {
+  color: #34d399;
+  text-shadow: 0 0 8px rgba(52, 211, 153, 0.55);
+}
+
+#copilot .cp-online.off {
+  color: #94a3b8;
+}
+
 #copilot .cp-status.bad {
   color: #fda4af;
 }

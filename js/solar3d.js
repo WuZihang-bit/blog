@@ -401,13 +401,13 @@
      小行星带（火星 110 — 木星 152 之间）：InstancedMesh 岩石群
      ====================================================================== */
 
-  var BELT_INNER = 122, BELT_OUTER = 144;
+  var BELT_INNER = 127, BELT_OUTER = 137;   // 收窄并避开火星(110)/木星(152)轨道
   var beltGroup = new THREE.Group();
   scene.add(beltGroup);
 
   var beltRocks = [];   // { instIdx, mesh, a, r, w, tilt, ph, selfRot, scl }
   function buildBelt() {
-    var COUNT = 420;
+    var COUNT = 160;   /* 精简：稀疏离散的碎石环，避免与行星穿模 */
     var inst = new THREE.InstancedMesh(
       rockGeos[1],
       new THREE.MeshPhongMaterial({ map: fragTex, shininess: 2, flatShading: true }),
@@ -434,9 +434,9 @@
         ecc: 0.02 + rnd2() * 0.05,
         ph: rnd2() * Math.PI * 2,
         selfRot: (rnd2() - 0.5) * 1.2,
-        rx: 0.5 + rnd2() * 1.3,
-        ry: 0.4 + rnd2() * 1.0,
-        rz: 0.5 + rnd2() * 1.3
+        rx: 0.22 + rnd2() * 0.5,
+        ry: 0.18 + rnd2() * 0.4,
+        rz: 0.22 + rnd2() * 0.5
       };
       beltRocks.push(rock);
       /* 初始摆放 */
@@ -544,6 +544,103 @@
     pos.needsUpdate = true;
     col.needsUpdate = true;
   }
+
+  /* ======================================================================
+     银河天幕与深空星系：太阳系位于银河系内，背景是银河全景；
+     远方再散布几座程序化螺旋星系（可观测的河外天体）
+     ====================================================================== */
+
+  var galaxyDome = new THREE.Mesh(
+    new THREE.SphereGeometry(2600, 48, 32),
+    new THREE.MeshBasicMaterial({
+      side: THREE.BackSide,
+      color: 0xffffff,
+      opacity: 0,
+      transparent: true,
+      depthWrite: false
+    })
+  );
+  scene.add(galaxyDome);
+  texLoader.load(
+    TEX_BASE + 'textures/2k_stars_milky_way.jpg',
+    function (t) {
+      galaxyDome.material.map = t;
+      galaxyDome.material.opacity = 0.85;
+      galaxyDome.material.needsUpdate = true;
+    },
+    undefined,
+    function () { galaxyDome.material.opacity = 1; }
+  );
+
+  /* 程序化螺旋星系贴图（俯视旋臂） */
+  function paintGalaxy(g, w, h, rnd, hueShift) {
+    var cx = w / 2, cy = h / 2;
+    var arms = 2 + ((rnd() * 2) | 0);
+    /* 核心光晕 */
+    var core = g.createRadialGradient(cx, cy, 0, cx, cy, w * 0.12);
+    core.addColorStop(0, 'rgba(255,244,214,0.95)');
+    core.addColorStop(0.5, 'rgba(255,220,170,0.5)');
+    core.addColorStop(1, 'rgba(255,210,150,0)');
+    g.fillStyle = core;
+    g.fillRect(0, 0, w, h);
+    /* 旋臂：沿对数螺线撒亮点 */
+    for (var a = 0; a < arms; a++) {
+      var base = (Math.PI * 2 * a) / arms;
+      for (var k = 0; k < 260; k++) {
+        var t2 = k / 260;
+        var ang = base + t2 * 4.4;
+        var rr = w * (0.04 + t2 * 0.42) * (0.92 + rnd() * 0.16);
+        var x = cx + Math.cos(ang) * rr + (rnd() - 0.5) * w * 0.03;
+        var y = cy + Math.sin(ang) * rr * 0.86 + (rnd() - 0.5) * w * 0.03;
+        var s = 0.6 + rnd() * 1.8;
+        var hue = 200 + hueShift + rnd() * 40;
+        var al = 0.25 + rnd() * 0.5 * (1 - t2 * 0.5);
+        g.fillStyle = 'hsla(' + hue + ',70%,' + (70 + rnd() * 25) + '%,' + al + ')';
+        g.beginPath();
+        g.arc(x, y, s, 0, 6.2832);
+        g.fill();
+      }
+    }
+    /* 零散尘埃 */
+    for (var d = 0; d < 90; d++) {
+      g.fillStyle = 'rgba(255,255,255,' + (0.04 + rnd() * 0.1) + ')';
+      g.beginPath();
+      g.arc(rnd() * w, rnd() * h, rnd() * 1.2, 0, 6.2832);
+      g.fill();
+    }
+  }
+
+  /* 远方星系：天幕内侧缓慢自转的精灵，距离远、小而精致 */
+  var farGalaxies = [];
+  (function buildFarGalaxies() {
+    var rndG = mulberry32(777);
+    var NGAL = 7;
+    for (var i = 0; i < NGAL; i++) {
+      var c = document.createElement('canvas');
+      c.width = c.height = 256;
+      var gctx = c.getContext('2d');
+      paintGalaxy(gctx, 256, 256, function () { return rndG(); }, (rndG() - 0.5) * 80);
+      var sp = new THREE.Sprite(new THREE.SpriteMaterial({
+        map: new THREE.CanvasTexture(c),
+        transparent: true,
+        opacity: 0.55 + rndG() * 0.3,
+        depthWrite: false
+      }));
+      var R = 1500 + rndG() * 700;
+      var th = rndG() * Math.PI * 2;
+      var ph2 = (rndG() - 0.5) * 1.7;
+      sp.position.set(
+        R * Math.cos(ph2) * Math.cos(th),
+        R * Math.sin(ph2),
+        R * Math.cos(ph2) * Math.sin(th)
+      );
+      var size = 90 + rndG() * 160;
+      sp.scale.set(size, size, 1);
+      sp.material.rotation = rndG() * Math.PI;
+      scene.add(sp);
+      farGalaxies.push(sp);
+    }
+  })();
 
   function toggleGravField(force) {
     gravOn = (force !== undefined) ? !!force : !gravOn;
@@ -719,7 +816,7 @@
         body.material.emissive = new THREE.Color(0xffc98a);
         body.material.emissiveIntensity = 0.0;
         texLoader.load(
-          TEX_BASE + 'textures/8k_earth_nightmap.jpg',
+          TEX_BASE + 'textures/2k_earth_nightmap.jpg',
           function (t) {
             body.material.emissiveMap = t;
             body.material.emissiveIntensity = 1.15;
@@ -736,7 +833,7 @@
         );
         clouds.scale.copy(body.scale).multiplyScalar(1.035);
         texLoader.load(
-          TEX_BASE + 'textures/8k_earth_clouds.jpg',
+          TEX_BASE + 'textures/2k_earth_clouds.jpg',
           function (t) {
             clouds.material.map = t;
             clouds.material.opacity = 0.92;
@@ -1601,9 +1698,11 @@
           Math.sin(p.angle) * p.dist + p.offZ
         );
       } else if (p.mode === 'physical') {
+        /* 物理演化同样受时间流速控制（timeScale=0 时万物静止） */
+        var pdt = dt * PARAMS.timeScale;
         gravityAt(p.group.position, acc, p);
-        p.vel.addScaledVector(acc, dt);
-        p.group.position.addScaledVector(p.vel, dt);
+        p.vel.addScaledVector(acc, pdt);
+        p.group.position.addScaledVector(p.vel, pdt);
         if (p.group.position.length() > DESPAWN_R) {
           p.mode = 'gone';
           p.group.visible = false;

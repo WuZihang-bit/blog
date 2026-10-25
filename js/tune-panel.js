@@ -42,7 +42,7 @@
     {
       group: '时间与运动',
       items: [
-        { label: '时间流速', min: 0.2, max: 4, step: 0.1, get: function () { return P.timeScale; }, set: function (v) { P.timeScale = v; } },
+        { label: '时间流速', min: 0, max: 4, step: 0.1, hint: '0 = 时间静止', get: function () { return P.timeScale; }, set: function (v) { P.timeScale = v; } },
         { label: '行星大小', min: 0.5, max: 2.2, step: 0.05, get: function () { return P.planetScale; }, set: function (v) { P.planetScale = v; } },
         { label: '太阳大小', min: 10, max: 40, step: 1, get: function () { return P.sunSize; }, set: function (v) { P.sunSize = v; } },
         { label: '轨道线亮度', min: 0, max: 0.5, step: 0.02, get: function () { return P.orbitOpacity; }, set: function (v) { P.orbitOpacity = v; } },
