@@ -14,10 +14,10 @@
   'use strict';
 
   var GISCUS_CONFIG = {
-    repo: '▢OWNER/▢REPO',                 // 例如 'wuzihang/blog'
-    repoId: '▢REPO_ID',                   // publish.sh 会打印
+    repo: 'WuZihang-bit/blog',
+    repoId: 'R_kgDOVW31Gg',
     category: 'Announcements',
-    categoryId: '▢CATEGORY_ID',           // giscus.app 生成页显示
+    categoryId: 'DIC_kwDOVW31Gs4DJlaU',
     theme: 'transparent_dark',
     lang: 'zh-CN'
   };
