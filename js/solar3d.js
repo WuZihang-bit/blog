@@ -49,13 +49,13 @@
 
   var PLANETS = [
     { name: '水星',   en: 'MERCURY', tex: 'rocky', file: '8k_mercury.jpg',        tilt: 0.03, r: 3.2, dist: 46,  speed: 2.4,  phase: 1.2, mass: 0.4 },
-    { name: '金星',   en: 'VENUS',   tex: 'venus', file: '2k_venus_atmosphere.jpg', tilt: 177.4, r: 4.6, dist: 64,  speed: 1.75, phase: 3.9, mass: 0.8 },
+    { name: '金星',   en: 'VENUS',   tex: 'venus', file: '2k_venus_atmosphere.jpg', tilt: 177.4, texFlow: 0.006, r: 4.6, dist: 64,  speed: 1.75, phase: 3.9, mass: 0.8 },
     { name: '地球',   en: 'EARTH',   tex: 'earth', file: '8k_earth_daymap.jpg',   tilt: 23.4, r: 5.0, dist: 86,  speed: 1.4,  phase: 0.4, mass: 1.0, moon: true },
     { name: '火星',   en: 'MARS',    tex: 'mars',  file: '8k_mars.jpg',           tilt: 25.2, r: 3.8, dist: 110, speed: 1.1,  phase: 5.2, mass: 0.6 },
-    { name: '木星',   en: 'JUPITER', tex: 'jup',   file: '8k_jupiter.jpg',        tilt: 3.1,  r: 13,  dist: 152, speed: 0.6,  phase: 2.1, mass: 12 },
+    { name: '木星',   en: 'JUPITER', tex: 'jup',   file: '8k_jupiter.jpg',        tilt: 3.1,  texFlow: 0.0015,  r: 13,  dist: 152, speed: 0.6,  phase: 2.1, mass: 12 },
     { name: '土星',   en: 'SATURN',  tex: 'sat',   file: '8k_saturn.jpg',         tilt: 26.7, r: 11,  dist: 195, speed: 0.48, phase: 4.4, mass: 7, ring: true },
     { name: '天王星', en: 'URANUS',  tex: 'ura',   file: '2k_uranus.jpg',         tilt: 97.8, r: 7,   dist: 232, speed: 0.4,  phase: 0.9, mass: 3 },
-    { name: '海王星', en: 'NEPTUNE', tex: 'nep',   file: '2k_neptune.jpg',        tilt: 28.3, r: 6.8, dist: 262, speed: 0.33, phase: 2.8, mass: 2.8 }
+    { name: '海王星', en: 'NEPTUNE', tex: 'nep',   file: '2k_neptune.jpg',        tilt: 28.3, texFlow: 0.002, r: 6.8, dist: 262, speed: 0.33, phase: 2.8, mass: 2.8 }
   ];
 
   /* ---------- 确定性随机 ---------- */
@@ -562,7 +562,7 @@
   );
   scene.add(galaxyDome);
   texLoader.load(
-    TEX_BASE + 'textures/2k_stars_milky_way.jpg',
+    TEX_BASE + 'textures/8k_stars_milky_way.jpg',
     function (t) {
       galaxyDome.material.map = t;
       galaxyDome.material.opacity = 0.85;
@@ -648,6 +648,132 @@
     return gravOn;
   }
 
+  /* ======================================================================
+     太阳动态细节：日珥弧（磁力线）+ 点击喷流
+     ====================================================================== */
+
+  var prominences = [];   // 边缘磁力线弧，各自呼吸
+  (function buildProminences() {
+    var NPRO = 7;
+    for (var i = 0; i < NPRO; i++) {
+      var ang = (Math.PI * 2 * i) / NPRO + 0.4;
+      var h = PARAMS.sunSize * (0.5 + Math.random() * 0.9);
+      var w = PARAMS.sunSize * (0.5 + Math.random() * 0.5);
+      /* 从表面 A 点拱起到 B 点的贝塞尔弧 */
+      var ax = Math.cos(ang) * PARAMS.sunSize;
+      var az = Math.sin(ang) * PARAMS.sunSize;
+      var bx = Math.cos(ang + w / PARAMS.sunSize * 0.5) * PARAMS.sunSize;
+      var bz = Math.sin(ang + w / PARAMS.sunSize * 0.5) * PARAMS.sunSize;
+      var mx = (ax + bx) / 2, mz = (az + bz) / 2;
+      var ml = Math.sqrt(mx * mx + mz * mz) || 1;
+      var apexX = mx / ml * (PARAMS.sunSize + h);
+      var apexZ = mz / ml * (PARAMS.sunSize + h);
+      var curve = new THREE.QuadraticBezierCurve3(
+        new THREE.Vector3(ax, 0, az),
+        new THREE.Vector3(apexX, 0, apexZ),
+        new THREE.Vector3(bx, 0, bz)
+      );
+      var pts = curve.getPoints(28);
+      var geo = new THREE.BufferGeometry().setFromPoints(pts);
+      var mat = new THREE.LineBasicMaterial({
+        color: 0xffa04d, transparent: true, opacity: 0,
+        blending: THREE.AdditiveBlending, depthWrite: false
+      });
+      var line = new THREE.Line(geo, mat);
+      scene.add(line);
+      prominences.push({
+        line: line,
+        ph: Math.random() * Math.PI * 2,
+        sp: 0.3 + Math.random() * 0.5
+      });
+    }
+  })();
+
+  function stepProminences(dt, now) {
+    for (var i = 0; i < prominences.length; i++) {
+      var pr = prominences[i];
+      var breath = Math.max(0, Math.sin(now * 0.001 * pr.sp + pr.ph));
+      pr.line.material.opacity = breath * 0.55 * (0.5 + sunFlare);
+    }
+  }
+
+  /* 点击喷流：从点击方向喷出的热粒子束 */
+  var SUN_JET_N = 160;
+  var sunJets = null;      // { points, pos[], vel[], life[] }
+  (function buildSunJets() {
+    var geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(
+      new Float32Array(SUN_JET_N * 3), 3
+    ));
+    geo.setAttribute('size', new THREE.BufferAttribute(
+      new Float32Array(SUN_JET_N), 1
+    ));
+    var mat = new THREE.PointsMaterial({
+      color: 0xffc98a, size: 1.6, transparent: true, opacity: 0.95,
+      blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: true
+    });
+    var pts = new THREE.Points(geo, mat);
+    pts.visible = false;
+    scene.add(pts);
+    sunJets = {
+      points: pts,
+      pos: new Float32Array(SUN_JET_N * 3),
+      vel: new Float32Array(SUN_JET_N * 3),
+      life: new Float32Array(SUN_JET_N)
+    };
+  })();
+
+  var JET_DIR = new THREE.Vector3();
+
+  function fireSunJet(screenX, screenY) {
+    /* 点击方向（屏幕 → 世界方向）作为喷流主轴 */
+    updateNDC(screenX, screenY);
+    raycaster.setFromCamera(pointerNDC, camera);
+    JET_DIR.copy(raycaster.ray.direction).setY(0).normalize();
+    if (JET_DIR.lengthSq() < 0.01) JET_DIR.set(1, 0, 0);
+    var R = PARAMS.sunSize;
+    for (var i = 0; i < SUN_JET_N; i++) {
+      var spread = (Math.random() - 0.5) * 0.5;
+      var dir = JET_DIR.clone().normalize();
+      dir.x += spread * (Math.random() - 0.5);
+      dir.y += (Math.random() - 0.3) * 0.35;
+      dir.z += spread * (Math.random() - 0.5);
+      dir.normalize();
+      var sp = 26 + Math.random() * 42;
+      var sx = dir.x * R * 1.02;
+      var sy = dir.y * R * 1.02;
+      var sz = dir.z * R * 1.02;
+      sunJets.pos[i * 3] = sx;
+      sunJets.pos[i * 3 + 1] = sy;
+      sunJets.pos[i * 3 + 2] = sz;
+      sunJets.vel[i * 3] = dir.x * sp;
+      sunJets.vel[i * 3 + 1] = dir.y * sp;
+      sunJets.vel[i * 3 + 2] = dir.z * sp;
+      sunJets.life[i] = 0.9 + Math.random() * 0.7;
+    }
+    sunJets.points.visible = true;
+  }
+
+  function stepSunJets(dt) {
+    if (!sunJets.points.visible) return;
+    var any = false;
+    for (var i = 0; i < SUN_JET_N; i++) {
+      if (sunJets.life[i] <= 0) continue;
+      any = true;
+      sunJets.life[i] -= dt * 0.9;
+      sunJets.vel[i * 3 + 1] -= 14 * dt;      /* 轻微回落（重力） */
+      sunJets.pos[i * 3] += sunJets.vel[i * 3] * dt;
+      sunJets.pos[i * 3 + 1] += sunJets.vel[i * 3 + 1] * dt;
+      sunJets.pos[i * 3 + 2] += sunJets.vel[i * 3 + 2] * dt;
+    }
+    sunJets.points.geometry.attributes.position.array.set(sunJets.pos);
+    sunJets.points.geometry.attributes.position.needsUpdate = true;
+    var fade = 0;
+    for (var j = 0; j < SUN_JET_N; j++) fade = Math.max(fade, sunJets.life[j]);
+    sunJets.points.material.opacity = Math.min(0.95, fade);
+    if (!any) sunJets.points.visible = false;
+  }
+
   /* ---------- 行星 ---------- */
 
   var planetMeshes = [];   // 用于射线拾取的球体
@@ -694,20 +820,83 @@
       planetMeshes.push(hit);
 
       if (p.ring) {
-        var ringCols = [0xd8c08a, 0xe8d5a2, 0xc9b078];
-        var ringOps = [0.34, 0.52, 0.3];
-        var ringRs = [[1.5, 1.78], [1.9, 2.28], [2.4, 2.62]];
-        for (var rk = 0; rk < 3; rk++) {
-          var ring = new THREE.Mesh(
-            new THREE.RingGeometry(p.r * 1.35 * ringRs[rk][0], p.r * 1.35 * ringRs[rk][1], 64),
-            new THREE.MeshBasicMaterial({
-              color: ringCols[rk], transparent: true, opacity: ringOps[rk],
-              side: THREE.DoubleSide, depthWrite: false
-            })
-          );
-          ring.rotation.x = -Math.PI / 2 + 0.42;
-          group.add(ring);
-        }
+        /* 真实土星环：单环带径向条纹纹理（含卡西尼缝/恩克缝），UV 重映射为径向 */
+        var ringTex = (function () {
+          var c = document.createElement('canvas');
+          c.width = 512; c.height = 8;
+          var g = c.getContext('2d');
+          /* 径向剖面：C 环暗 - B 环亮 - 卡西尼缝 - A 环 - 恩克缝 - F 环细线 */
+          var stops = [
+            [0.00, 'rgba(160,140,110,0.0)'],
+            [0.06, 'rgba(170,150,118,0.25)'],
+            [0.16, 'rgba(205,185,150,0.55)'],
+            [0.38, 'rgba(232,213,170,0.85)'],
+            [0.52, 'rgba(238,222,182,0.95)'],
+            [0.60, 'rgba(60,55,48,0.12)'],   /* 卡西尼缝 */
+            [0.62, 'rgba(60,55,48,0.10)'],
+            [0.70, 'rgba(216,196,156,0.75)'], /* A 环 */
+            [0.78, 'rgba(90,80,66,0.15)'],    /* 恩克缝 */
+            [0.80, 'rgba(210,190,150,0.65)'],
+            [0.93, 'rgba(180,160,126,0.30)'],
+            [0.96, 'rgba(200,182,148,0.5)'],  /* F 环 */
+            [1.00, 'rgba(200,182,148,0.0)']
+          ];
+          var grad = g.createLinearGradient(0, 0, 512, 0);
+          for (var s2 = 0; s2 < stops.length; s2++) {
+            grad.addColorStop(stops[s2][0], stops[s2][1]);
+          }
+          g.fillStyle = grad;
+          g.fillRect(0, 0, 512, 8);
+          /* 微细纹理：随机细线增加颗粒感 */
+          for (var ln = 0; ln < 130; ln++) {
+            var x = Math.random() * 512;
+            g.fillStyle = 'rgba(255,244,220,' + (Math.random() * 0.08) + ')';
+            g.fillRect(x, 0, 1, 8);
+          }
+          var t = new THREE.CanvasTexture(c);
+          t.wrapS = THREE.ClampToEdgeWrapping;
+          return t;
+        })();
+
+        var ringGeo = new THREE.RingGeometry(
+          p.r * 1.35 * 1.4, p.r * 1.35 * 2.7, 96, 1
+        );
+        /* UV 重映射：x = 径向位置（贴 1D 纹理），y 恒 0.5 */
+        (function remapRingUV(geo, inner, outer) {
+          var pos = geo.attributes.position;
+          var uv = geo.attributes.uv;
+          for (var ri = 0; ri < pos.count; ri++) {
+            var px = pos.getX(ri), pz = pos.getZ(ri);
+            var rr = Math.sqrt(px * px + pz * pz);
+            uv.setXY(ri, (rr - inner) / (outer - inner), 0.5);
+          }
+          uv.needsUpdate = true;
+        })(ringGeo, p.r * 1.35 * 1.4, p.r * 1.35 * 2.7);
+
+        var ringMesh = new THREE.Mesh(
+          ringGeo,
+          new THREE.MeshBasicMaterial({
+            map: ringTex, transparent: true, side: THREE.DoubleSide,
+            depthWrite: false, opacity: 0.96
+          })
+        );
+        ringMesh.rotation.x = -Math.PI / 2 + 0.42;
+        group.add(ringMesh);
+        p.ringMesh = ringMesh;
+      }
+
+      /* 天王星：细环系统（真实存在，垂直于 97.8° 轴） */
+      if (p.en === 'URANUS') {
+        var uRing = new THREE.Mesh(
+          new THREE.RingGeometry(p.r * 1.35 * 1.65, p.r * 1.35 * 2.0, 64),
+          new THREE.MeshBasicMaterial({
+            color: 0x9fd8e2, transparent: true, opacity: 0.22,
+            side: THREE.DoubleSide, depthWrite: false
+          })
+        );
+        uRing.rotation.x = -Math.PI / 2;
+        group.add(uRing);
+        p.uraRing = uRing;
       }
 
       if (p.moon) {
@@ -725,15 +914,47 @@
 
         var satMat = new THREE.MeshBasicMaterial({ color: 0xcfe6ff });
         var panelMat = new THREE.MeshBasicMaterial({ color: 0x3a5f9e });
-        var SAT_GEO = new THREE.OctahedronGeometry(1, 0);
         var BOX_GEO = new THREE.BoxGeometry(1, 1, 1);
+
+        /* 卫星小模型：核心舱 + 双侧太阳能板，合并为一个几何（一次 draw call 造价） */
+        var SAT_GEO = (function mergeSat() {
+          function part(w, h, d, x, y, z) {
+            var g = BOX_GEO.clone();
+            g.scale(w, h, d);
+            g.translate(x, y, z);
+            return g.toNonIndexed();
+          }
+          var parts = [
+            part(0.55, 0.28, 0.28, 0, 0, 0),      /* 核心舱 */
+            part(0.08, 0.05, 0.9, 0, 0, 0),       /* 横梁 */
+            part(0.03, 0.2, 0.4, 0, 0.13, -0.55), /* 左板 */
+            part(0.03, 0.2, 0.4, 0, 0.13, 0.55)   /* 右板 */
+          ];
+          var total = parts.reduce(function (n, g) { return n + g.attributes.position.count; }, 0);
+          var pos = new Float32Array(total * 3);
+          var nor = new Float32Array(total * 3);
+          var off = 0;
+          parts.forEach(function (g) {
+            pos.set(g.attributes.position.array, off * 3);
+            nor.set(g.attributes.normal.array, off * 3);
+            off += g.attributes.position.count;
+          });
+          var merged = new THREE.BufferGeometry();
+          merged.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+          merged.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+          return merged;
+        })();
+        /* 两种材质按组拆分：核心壳体亮色、板深色 */
+        SAT_GEO.clearGroups();
+        SAT_GEO.addGroup(0, 72, 0);        /* 核心+横梁 36 顶点×2 面×… non-indexed 每 box 36 顶点 */
+        SAT_GEO.addGroup(72, 144, 1);
 
         /* LEO 卫星群：60 颗，多倾角 */
         p.sats = [];
         var rndS = mulberry32(2026);
         for (var si = 0; si < 60; si++) {
-          var sm = new THREE.Mesh(SAT_GEO, satMat);
-          sm.scale.setScalar(0.22 + rndS() * 0.12);
+          var sm = new THREE.Mesh(SAT_GEO, [satMat, panelMat]);
+          sm.scale.setScalar(0.30 + rndS() * 0.14);
           group.add(sm);
           p.sats.push({
             mesh: sm,
@@ -816,7 +1037,7 @@
         body.material.emissive = new THREE.Color(0xffc98a);
         body.material.emissiveIntensity = 0.0;
         texLoader.load(
-          TEX_BASE + 'textures/2k_earth_nightmap.jpg',
+          TEX_BASE + 'textures/8k_earth_nightmap.jpg',
           function (t) {
             body.material.emissiveMap = t;
             body.material.emissiveIntensity = 1.15;
@@ -833,7 +1054,7 @@
         );
         clouds.scale.copy(body.scale).multiplyScalar(1.035);
         texLoader.load(
-          TEX_BASE + 'textures/2k_earth_clouds.jpg',
+          TEX_BASE + 'textures/8k_earth_clouds.jpg',
           function (t) {
             clouds.material.map = t;
             clouds.material.opacity = 0.92;
@@ -1129,6 +1350,7 @@
 
     if (pickSun(x, y)) {
       sunFlare = 1;
+      fireSunJet(x, y);
       var sp = screenPosOf(sun.position);
       window.dispatchEvent(new CustomEvent('starburst', {
         detail: { x: sp.x, y: sp.y, scale: 1.8 }
@@ -1679,6 +1901,18 @@
     corona1.scale.setScalar(PARAMS.sunSize * 9 * coronaScale);
     corona2.scale.setScalar(PARAMS.sunSize * 3.4 * coronaScale);
 
+    /* 太阳表面流动：贴图 UV 缓慢横移 + 呼吸（米粒组织涌动感） */
+    if (sun.material.map) {
+      sun.material.map.offset.x = (now * 0.000012) % 1;
+      sun.material.map.offset.y = Math.sin(now * 0.0004) * 0.004;
+    }
+
+    /* 日珥：边缘的磁力线弧，周期性亮起与回落 */
+    stepProminences(dt, now);
+
+    /* 太阳喷流粒子（点击触发） */
+    stepSunJets(dt);
+
     /* 行星 */
     for (var i = 0; i < PLANETS.length; i++) {
       var p = PLANETS[i];
@@ -1714,6 +1948,17 @@
         p.body.rotation.y += dt * p.spin * PARAMS.timeScale;
         p.body.scale.setScalar(p.r * 1.35 * PARAMS.planetScale);
         p.points.scale.copy(p.body.scale);
+
+        /* 行星专属微动态：大气的流动（贴图 UV 缓慢漂移） */
+        if (p.texFlow && p.body.material.map) {
+          p.body.material.map.offset.x =
+            (p.body.material.map.offset.x + p.texFlow * dt * PARAMS.timeScale) % 1;
+        }
+        /* 土星环：不透明度轻微呼吸（冰晶反光感） */
+        if (p.ringMesh) {
+          p.ringMesh.material.opacity = 0.9 + Math.sin(now * 0.0009) * 0.06;
+        }
+
         if (p.atmoShell) {
           p.atmoShell.scale.copy(p.body.scale).multiplyScalar(1.14);
         }
@@ -1738,6 +1983,8 @@
               cz * ci,
               cx * sn + cz * si2 * cn
             );
+            /* 卫星缓慢自转（太阳能板扫光的感觉） */
+            s3.mesh.rotation.y += dt * 0.6 * PARAMS.timeScale;
           }
         }
         if (p.iss) {

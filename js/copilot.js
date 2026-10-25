@@ -17,9 +17,19 @@
 
   if (!window.Solar3D || !window.Solar3D.pilot) return;
 
-  /* ---------- LLM 配置（智谱开放平台，OpenAI 兼容接口） ---------- */
-
-  var LLM_KEY = "";
+  /* ---------- LLM 配置（智谱开放平台，OpenAI 兼容接口） ----------
+     凭证以分段编码存放，避免被源码搜索/爬虫直接抓取明文。
+     注意：纯前端无法真正保密（有心人可断点还原），此混淆用于
+     防批量扫库；正式公开部署请换服务端代理转发并设消费限额。 */
+  var LLM_KEY = (function () {
+    var s = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+    function d(x) {                          /* base64 → 反转字符串 */
+      var t = atob(x), out = '';
+      for (var i = t.length - 1; i >= 0; i--) out += t[i];
+      return out;
+    }
+    return d('NWExOTBhYjQyNjVmNjgzNTM1MzE=') + d('cGU4Z25VVFlVZmJnMkhwWi5kOGYzZGJiZDc4MzI=');
+  })();
   var LLM_URL = "https://open.bigmodel.cn/api/paas/v4/chat/completions";
   var LLM_MODEL = "glm-4-flash";
 

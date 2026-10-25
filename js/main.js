@@ -122,6 +122,19 @@
     updateProgress();
   }
 
+  /* ---------- 图标按钮悬停提示（仅无文字说明的纯图标按钮） ---------- */
+
+  var TIPS = {
+    'theme-toggle': '深色 / 浅色主题',
+    'solar-reset': '还原太阳系',
+    'tune-toggle': '太阳系调节台',
+    'copilot-toggle': 'AI 副驾驶 · 指令与问答'
+  };
+  Object.keys(TIPS).forEach(function (id) {
+    var el = document.getElementById(id);
+    if (el) el.setAttribute('data-tip', TIPS[id]);
+  });
+
   /* ---------- 轻量代码高亮 ---------- */
 
   var KEYWORDS = {
