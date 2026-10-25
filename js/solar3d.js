@@ -736,7 +736,7 @@
   );
   scene.add(galaxyDome);
   texLoader.load(
-    TEX_BASE + 'textures/2k_stars_milky_way.jpg',
+    TEX_BASE + 'textures/8k_stars_milky_way.jpg',
     function (t) {
       galaxyDome.material.map = t;
       galaxyDome.material.opacity = 0.85;
@@ -1214,7 +1214,7 @@
         body.material.emissive = new THREE.Color(0xffc98a);
         body.material.emissiveIntensity = 0.0;
         texLoader.load(
-          TEX_BASE + 'textures/2k_earth_nightmap.jpg',
+          TEX_BASE + 'textures/8k_earth_nightmap.jpg',
           function (t) {
             body.material.emissiveMap = t;
             body.material.emissiveIntensity = 1.15;
@@ -1231,7 +1231,7 @@
         );
         clouds.scale.copy(body.scale).multiplyScalar(1.035);
         texLoader.load(
-          TEX_BASE + 'textures/2k_earth_clouds.jpg',
+          TEX_BASE + 'textures/8k_earth_clouds.jpg',
           function (t) {
             clouds.material.map = t;
             clouds.material.opacity = 0.92;
