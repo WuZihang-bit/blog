@@ -151,6 +151,99 @@
     });
   })();
 
+  
+  /* ---------- 文章目录 TOC + 返回顶部（长文导航） ---------- */
+
+  (function () {
+    var content = document.querySelector('.post-content');
+    if (!content) return;
+    var heads = content.querySelectorAll('h2');
+    if (heads.length < 2) return;   /* 短文不需要 */
+
+    /* 侧边悬浮目录（桌面）；移动端收进返回顶部按钮长按 */
+    var toc = document.createElement('nav');
+    toc.className = 'toc-float';
+    toc.setAttribute('aria-label', '文章目录');
+    var html = '<b>目录</b>';
+    heads.forEach(function (h, i) {
+      if (!h.id) h.id = 'sec-' + i;
+      html += '<a href="#' + h.id + '">' + h.textContent + '</a>';
+    });
+    toc.innerHTML = html;
+    document.body.appendChild(toc);
+
+    /* 返回顶部 */
+    var top = document.createElement('button');
+    top.id = 'back-top';
+    top.type = 'button';
+    top.setAttribute('aria-label', '返回顶部');
+    top.innerHTML =
+      '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+      '<polyline points="18 15 12 9 6 15"/><line x1="12" y1="19" x2="12" y2="3"/></svg>';
+    top.addEventListener('click', function () {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+    document.body.appendChild(top);
+    window.addEventListener('scroll', function () {
+      top.classList.toggle('show', window.scrollY > 600);
+    }, { passive: true });
+
+    /* 阅读进度高亮当前章节 */
+    var links = toc.querySelectorAll('a');
+    var onScroll = function () {
+      var cur = -1;
+      heads.forEach(function (h, i) {
+        if (h.getBoundingClientRect().top < 120) cur = i;
+      });
+      links.forEach(function (a, i) {
+        a.classList.toggle('on', i === cur);
+      });
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+  })();
+
+  /* ---------- 全局错误仪表：引擎异常时给用户可见的降级提示 ---------- */
+
+  (function () {
+    var shown = {};
+    function report(key, msg) {
+      if (shown[key]) return;
+      shown[key] = true;
+      var bar = document.createElement('div');
+      bar.style.cssText = 'position:fixed;left:12px;bottom:12px;z-index:95;' +
+        'padding:10px 16px;border:1px solid rgba(253,164,175,0.4);border-radius:10px;' +
+        'background:rgba(30,10,16,0.92);color:#fecdd3;font-size:12.5px;max-width:78vw;' +
+        'font-family:inherit;';
+      bar.textContent = msg;
+      document.body.appendChild(bar);
+      setTimeout(function () { bar.remove(); }, 8000);
+    }
+    window.addEventListener('error', function (e) {
+      if (window.__bgLastError && !shown.bg) {
+        report('bg', '星空背景遇到问题，已自动降级（内容不受影响）');
+      }
+      if (window.__solarLastError && !shown.solar) {
+        report('solar', '3D 引擎遇到问题，已自动保活（刷新可恢复）');
+      }
+    });
+    /* 每 5 秒巡检一次引擎探针 */
+    setInterval(function () {
+      if (window.__bgLastError && !shown.bg) {
+        report('bg', '星空背景遇到问题，已自动降级（内容不受影响）');
+      }
+      if (window.__solarLastError && !shown.solar) {
+        report('solar', '3D 引擎遇到问题，已自动保活（刷新可恢复）');
+      }
+    }, 5000);
+  })();
+
+  /* ---------- PWA：Service Worker 注册（仅 https，本地 http 跳过） ---------- */
+
+  if ('serviceWorker' in navigator && location.protocol === 'https:') {
+    navigator.serviceWorker.register('sw.js').catch(function () { /* 静默 */ });
+  }
+
   /* ---------- 图标按钮悬停提示（仅无文字说明的纯图标按钮） ---------- */
 
   var TIPS = {

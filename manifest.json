@@ -1,0 +1,13 @@
+{
+  "name": "吴子航的博客 · 深空站",
+  "short_name": "深空站",
+  "description": "金融后端 × 大模型应用方向的学习笔记、项目复盘与 3D 太阳系引力沙盒",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#050914",
+  "theme_color": "#3b82f6",
+  "icons": [
+    { "src": "favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

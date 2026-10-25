@@ -64,14 +64,14 @@
   var MAX_FRAGS = 90;
 
   var PLANETS = [
-    { name: '水星',   en: 'MERCURY', tex: 'rocky', file: '8k_mercury.jpg',        tilt: 0.03, r: 3.2, dist: 46,  speed: 2.4,  phase: 1.2, mass: 0.4 },
-    { name: '金星',   en: 'VENUS',   tex: 'venus', file: '2k_venus_atmosphere.jpg', tilt: 177.4, texFlow: 0.006, r: 4.6, dist: 64,  speed: 1.75, phase: 3.9, mass: 0.8 },
-    { name: '地球',   en: 'EARTH',   tex: 'earth', file: '8k_earth_daymap.jpg',   tilt: 23.4, r: 5.0, dist: 86,  speed: 1.4,  phase: 0.4, mass: 1.0, moon: true },
-    { name: '火星',   en: 'MARS',    tex: 'mars',  file: '8k_mars.jpg',           tilt: 25.2, r: 3.8, dist: 110, speed: 1.1,  phase: 5.2, mass: 0.6 },
-    { name: '木星',   en: 'JUPITER', tex: 'jup',   file: '8k_jupiter.jpg',        tilt: 3.1,  texFlow: 0.0015,  r: 13,  dist: 152, speed: 0.6,  phase: 2.1, mass: 12 },
-    { name: '土星',   en: 'SATURN',  tex: 'sat',   file: '8k_saturn.jpg',         tilt: 26.7, r: 11,  dist: 195, speed: 0.48, phase: 4.4, mass: 7, ring: true },
-    { name: '天王星', en: 'URANUS',  tex: 'ura',   file: null,               /* 增强程序化（真实贴图太平） */         tilt: 97.8, r: 7,   dist: 232, speed: 0.4,  phase: 0.9, mass: 3 },
-    { name: '海王星', en: 'NEPTUNE', tex: 'nep',   file: null,               /* 增强程序化（真实贴图太平） */        tilt: 28.3, texFlow: 0.002, r: 6.8, dist: 262, speed: 0.33, phase: 2.8, mass: 2.8 }
+    { name: '水星', info: { mass: '0.055', dist: '5790万 km', year: '88 天', atmo: '无（极端温差 -173~427°C）', desc: '距太阳最近的行星，表面布满陨石坑，昼夜温差全太阳系最大。' },   en: 'MERCURY', tex: 'rocky', file: '8k_mercury.jpg',        tilt: 0.03, r: 3.2, dist: 46,  speed: 2.4,  phase: 1.2, mass: 0.4 },
+    { name: '金星', info: { mass: '0.815', dist: '1.082亿 km', year: '225 天', atmo: '96% 二氧化碳，硫酸云', desc: '逆向自转的「炼狱」：温室效应使其成为最热的行星，气压是地球 92 倍。' },   en: 'VENUS',   tex: 'venus', file: '2k_venus_atmosphere.jpg', tilt: 177.4, texFlow: 0.006, r: 4.6, dist: 64,  speed: 1.75, phase: 3.9, mass: 0.8 },
+    { name: '地球', info: { mass: '1（基准）', dist: '1.496亿 km', year: '365.25 天', atmo: '78% 氮 21% 氧', desc: '已知唯一存在生命的行星。夜面可见人类城市灯光。' },   en: 'EARTH',   tex: 'earth', file: '8k_earth_daymap.jpg',   tilt: 23.4, r: 5.0, dist: 86,  speed: 1.4,  phase: 0.4, mass: 1.0, moon: true },
+    { name: '火星', info: { mass: '0.107', dist: '2.279亿 km', year: '687 天', atmo: '稀薄二氧化碳', desc: '红色源于地表氧化铁。有太阳系最高峰奥林帕斯山（21km）。' },   en: 'MARS',    tex: 'mars',  file: '8k_mars.jpg',           tilt: 25.2, r: 3.8, dist: 110, speed: 1.1,  phase: 5.2, mass: 0.6 },
+    { name: '木星', info: { mass: '317.8', dist: '7.785亿 km', year: '11.9 年', atmo: '90% 氢 10% 氦', desc: '质量是其他七颗行星总和的 2.5 倍。大红斑是持续 350+ 年的风暴。' },   en: 'JUPITER', tex: 'jup',   file: '8k_jupiter.jpg',        tilt: 3.1,  texFlow: 0.0015,  r: 13,  dist: 152, speed: 0.6,  phase: 2.1, mass: 12 },
+    { name: '土星', info: { mass: '95.2', dist: '14.34亿 km', year: '29.5 年', atmo: '氢氦为主', desc: '环系由无数冰粒组成，平均厚度仅 10 米，密度比水低。' },   en: 'SATURN',  tex: 'sat',   file: '8k_saturn.jpg',         tilt: 26.7, r: 11,  dist: 195, speed: 0.48, phase: 4.4, mass: 7, ring: true },
+    { name: '天王星', info: { mass: '14.5', dist: '28.71亿 km', year: '84 年', atmo: '氢氦+甲烷', desc: '自转轴倾斜 97.8°，几乎是「躺着」绕太阳滚动的冰巨星。' }, en: 'URANUS',  tex: 'ura',   file: null,               /* 增强程序化（真实贴图太平） */         tilt: 97.8, r: 7,   dist: 232, speed: 0.4,  phase: 0.9, mass: 3 },
+    { name: '海王星', info: { mass: '17.1', dist: '44.95亿 km', year: '164.8 年', atmo: '氢氦+甲烷', desc: '风速可达 2100 km/h，全太阳系最强。大暗斑是巨型风暴系统。' }, en: 'NEPTUNE', tex: 'nep',   file: null,               /* 增强程序化（真实贴图太平） */        tilt: 28.3, texFlow: 0.002, r: 6.8, dist: 262, speed: 0.33, phase: 2.8, mass: 2.8 }
   ];
 
   /* ---------- 确定性随机 ---------- */
@@ -671,10 +671,15 @@
 
     /* 网格重建成本高，等势圈按需刷新（行星在动，每帧重建太贵——每 0.25s 重建一次） */
     gravRingTimer += dt;
-    if (gravRingTimer > 0.25 || gravRingTimer < 0) {
+    if (gravRingTimer > 0.5 || gravRingTimer < 0) {
       gravRingTimer = 0;
       buildGravRings();
     }
+
+    /* 计算节流：20Hz 足够（势场变化慢），GPU/CPU 减压 60% */
+    gravCalcTimer += dt;
+    if (gravCalcTimer < 0.05) return;
+    gravCalcTimer = 0;
 
     var layers = [gravGrid, gravGrid2];
     for (var L = 0; L < layers.length; L++) {
@@ -723,6 +728,7 @@
     }
   }
   var gravRingTimer = 0;
+  var gravCalcTimer = 0;
 
   function toggleGravField(force) {
     gravOn = (force !== undefined) ? !!force : !gravOn;
@@ -2717,6 +2723,31 @@
         speed: Math.round(flight.vel.length()),
         flying: flight.on
       };
+    },
+    probePlanetHit: function (x, y) {
+      updateNDC(x, y);
+      var hit = pickFromNDC();
+      if (hit && hit.type === 'planet') {
+        var p = hit.planet;
+        return {
+          name: p.name, en: p.en,
+          mass: p.info ? p.info.mass : '—',
+          dist: p.info ? p.info.dist : '—',
+          year: p.info ? p.info.year : '—',
+          atmo: p.info ? p.info.atmo : '—',
+          desc: p.info ? p.info.desc : ''
+        };
+      }
+      /* 太阳 */
+      if (pickSunFromNDC()) {
+        return {
+          name: '太阳', en: 'SOL', mass: '333000（地球=1）',
+          dist: '—', year: '—',
+          atmo: '等离子体（氢 73% 氦 25%）',
+          desc: '太阳系的绝对主宰，占系统总质量的 99.86%。点击我试试耀斑。'
+        };
+      }
+      return null;
     },
     planetWorld: function (name) {
       var p = findPlanet(name);

@@ -149,7 +149,9 @@ a:hover {
 }
 
 a:focus-visible,
-button:focus-visible {
+button:focus-visible,
+input:focus-visible,
+[tabindex]:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
   border-radius: 4px;
@@ -2264,6 +2266,19 @@ body:has(#copilot.open) .flight-toggle {
   /* 顶栏：汉堡菜单收纳文字链接 */
   #nav-burger { display: grid; }
 
+  /* WCAG 2.5.8：触控目标最小 44px（图标钮外扩热区） */
+  .site-nav .theme-toggle,
+  #nav-burger {
+    position: relative;
+  }
+
+  .site-nav .theme-toggle::before,
+  #nav-burger::before {
+    content: "";
+    position: absolute;
+    inset: -7px;
+  }
+
   .site-nav {
     position: relative;
   }
@@ -2378,6 +2393,299 @@ body:has(#copilot.open) .flight-toggle {
 
   /* 留言板双卡变单列（已有 680 断点，补 768 圗括 */
   .msg-hero { grid-template-columns: 1fr; gap: 12px; }
+}
+
+/* ---------- 文章目录（桌面悬浮）+ 返回顶部 ---------- */
+
+.toc-float {
+  position: fixed;
+  left: 18px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 25;
+  width: 168px;
+  max-height: 62vh;
+  overflow-y: auto;
+  padding: 12px 0;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-glass);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  font-size: 12.5px;
+  display: none;
+}
+
+.toc-float b {
+  display: block;
+  padding: 0 14px 8px;
+  font-size: 10.5px;
+  letter-spacing: 3px;
+  color: var(--text-tertiary);
+}
+
+.toc-float a {
+  display: block;
+  padding: 6px 14px;
+  color: var(--text-secondary);
+  border-left: 2px solid transparent;
+  transition: color 0.15s ease, border-color 0.15s ease;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.toc-float a:hover { color: var(--accent); }
+.toc-float a.on {
+  color: var(--accent);
+  border-left-color: var(--accent);
+}
+
+@media (min-width: 1380px) {
+  .toc-float { display: block; }
+}
+
+#back-top {
+  position: fixed;
+  left: 22px;
+  bottom: 22px;
+  z-index: 22;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: var(--bg-glass-strong);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  color: var(--text-secondary);
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(8px);
+  transition: opacity 0.2s ease, transform 0.2s ease, color 0.2s ease;
+}
+
+#back-top.show {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+#back-top:hover { color: var(--accent); border-color: var(--accent); }
+
+/* ---------- 行星档案卡 ---------- */
+
+#planet-card {
+  position: fixed;
+  right: 24px;
+  top: 50%;
+  transform: translateY(-50%) translateX(30px);
+  z-index: 40;
+  width: min(300px, calc(100vw - 40px));
+  padding: 20px 22px 18px;
+  border: 1px solid rgba(148, 178, 214, 0.3);
+  border-radius: 18px;
+  background: rgba(8, 14, 28, 0.92);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  backdrop-filter: blur(16px) saturate(140%);
+  box-shadow: 0 24px 70px -20px rgba(0, 0, 0, 0.75),
+    inset 0 1px 0 rgba(125, 211, 252, 0.2);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+#planet-card.open {
+  opacity: 1;
+  transform: translateY(-50%) translateX(0);
+  pointer-events: auto;
+}
+
+#planet-card #pc-close {
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  border: none;
+  background: transparent;
+  color: rgba(160, 178, 204, 0.7);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+
+#planet-card #pc-close:hover {
+  color: #eaf2ff;
+  background: rgba(148, 178, 214, 0.12);
+}
+
+#planet-card .pc-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+#planet-card .pc-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--grad);
+  align-self: center;
+  box-shadow: 0 0 10px rgba(96, 165, 250, 0.6);
+}
+
+#planet-card .pc-head b {
+  font-size: 19px;
+  letter-spacing: 2px;
+  color: #eaf2ff;
+}
+
+#planet-card .pc-head i {
+  font-style: normal;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: rgba(148, 178, 214, 0.6);
+}
+
+#planet-card .pc-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 0 0 12px;
+}
+
+#planet-card .pc-grid > div {
+  padding: 8px 10px;
+  border: 1px solid rgba(148, 178, 214, 0.16);
+  border-radius: 9px;
+  background: rgba(148, 178, 214, 0.06);
+}
+
+#planet-card dt {
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: rgba(148, 178, 214, 0.6);
+  margin-bottom: 2px;
+}
+
+#planet-card dd {
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #dce8f8;
+}
+
+#planet-card p {
+  margin: 0 0 14px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: #b9c8de;
+}
+
+#planet-card .pc-actions {
+  display: flex;
+  gap: 9px;
+}
+
+#planet-card .pc-btn {
+  flex: 1;
+  padding: 9px 0;
+  border: none;
+  border-radius: 9px;
+  background: linear-gradient(120deg, #22d3ee, #3b82f6 55%, #8b5cf6);
+  color: #eaf6ff;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: filter 0.15s ease, transform 0.1s ease;
+}
+
+#planet-card .pc-btn:hover { filter: brightness(1.15); }
+#planet-card .pc-btn:active { transform: scale(0.97); }
+
+#planet-card .pc-ghost {
+  background: transparent;
+  border: 1px solid rgba(148, 178, 214, 0.3);
+  color: #b9c8de;
+}
+
+/* ---------- 归档搜索 + 相关文章 ---------- */
+
+#search-box {
+  width: 100%;
+  margin: 0 0 16px;
+  padding: 11px 16px;
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  background: var(--bg-glass);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  color: var(--text);
+  font-size: 14.5px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+#search-box:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 16px -4px rgba(56, 189, 248, 0.4);
+}
+
+#search-box::placeholder { color: var(--text-tertiary); }
+
+.search-empty {
+  padding: 26px;
+  text-align: center;
+  color: var(--text-tertiary);
+  font-size: 14px;
+}
+
+.related-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 40px;
+}
+
+@media (max-width: 640px) {
+  .related-grid { grid-template-columns: 1fr; }
+}
+
+.related-card {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 15px 17px;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  background: var(--bg-glass);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+
+.related-card:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+}
+
+.related-card b {
+  color: var(--text);
+  font-size: 14.5px;
+  line-height: 1.5;
+}
+
+.related-card span {
+  font-size: 12px;
+  color: var(--accent);
+  letter-spacing: 0.5px;
 }
 
 /* ---------- 响应式 ---------- */

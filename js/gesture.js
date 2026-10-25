@@ -299,7 +299,14 @@
 
   window.addEventListener('gesture-fire', function (e) {
     var msg = applyAction(e.detail.type);
-    if (msg) hudSay(msg);
+    if (msg) {
+      hudSay(msg);
+      /* 联动副驾驶：手势触发的系统动作也通知 Agent 状态区 */
+      var cp = document.querySelector('#copilot .cp-status');
+      if (cp && document.getElementById('copilot').classList.contains('open')) {
+        cp.textContent = '手势 → ' + msg;
+      }
+    }
   });
 
   /* 捏合 → 拖拽（复用 Solar3D 的指针链） */
@@ -461,6 +468,14 @@
     camOn = false;
     btn.classList.remove('on');
     hud.classList.remove('show');
+    /* 会话复位：下次开启是干净状态 */
+    state.cur = 'none';
+    state.cand = 'none';
+    state.candCount = 0;
+    state.pinchDown = false;
+    state.palmSm = null;
+    twoHandRef = null;
+    lostFrames = 0;
     if (stream) stream.getTracks().forEach(function (t) { t.stop(); });
     stream = null;
     updateHud(null);
@@ -585,6 +600,16 @@
   var hud = document.createElement('div');
   hud.id = 'gesture-hud';
   hud.setAttribute('aria-hidden', 'true');
+  /* HUD 状态文本对读屏可感知（aria-hidden 内的实时区） */
+  var live = document.createElement('div');
+  live.setAttribute('aria-live', 'polite');
+  live.style.position = 'absolute';
+  live.style.width = '1px';
+  live.style.height = '1px';
+  live.style.overflow = 'hidden';
+  document.body.appendChild(live);
+  var origHudSay = hudSay;
+  hudSay = function (msg, bad) { origHudSay(msg, bad); live.textContent = msg; };
   hud.innerHTML =
     '<div class="gh-title"><span class="gh-dot"></span>手势识别' +
     '<button id="gh-close" type="button" aria-label="关闭手势识别">✕</button></div>' +
@@ -595,6 +620,7 @@
 
   var toast = document.createElement('div');
   toast.id = 'gesture-toast';
+  toast.setAttribute('aria-live', 'polite');
   document.body.appendChild(toast);
 
   var hudStatus = hud.querySelector('#gh-status');
