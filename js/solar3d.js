@@ -2681,6 +2681,11 @@
       cancel: pilotCancel,
       status: pilotStatus
     },
+    gestureZoom: function (factor) {
+      /* 手势双手开合 → 自由模式缩放 */
+      if (PARAMS.mouseMode !== 'free') return;
+      freeCam.dist = Math.max(10, Math.min(1500, freeCam.dist / factor));
+    },
     active: true,
     get hovered() { return hovered; },
     onPointerDown: onPointerDown,
