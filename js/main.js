@@ -122,6 +122,35 @@
     updateProgress();
   }
 
+  /* ---------- 移动端顶栏汉堡菜单（≤768px 文字链接收纳） ---------- */
+
+  (function () {
+    var nav = document.querySelector('.site-nav');
+    if (!nav) return;
+    var burger = document.createElement('button');
+    burger.id = 'nav-burger';
+    burger.type = 'button';
+    burger.className = 'theme-toggle';
+    burger.setAttribute('aria-label', '菜单');
+    burger.setAttribute('aria-expanded', 'false');
+    burger.innerHTML =
+      '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">' +
+      '<line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>';
+    nav.insertBefore(burger, nav.firstChild);
+
+    burger.addEventListener('click', function () {
+      var open = nav.classList.toggle('menu-open');
+      burger.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+    /* 点击菜单项后自动收起 */
+    nav.querySelectorAll('a').forEach(function (a) {
+      a.addEventListener('click', function () { nav.classList.remove('menu-open'); });
+    });
+    document.addEventListener('click', function (e) {
+      if (!nav.contains(e.target)) nav.classList.remove('menu-open');
+    });
+  })();
+
   /* ---------- 图标按钮悬停提示（仅无文字说明的纯图标按钮） ---------- */
 
   var TIPS = {

@@ -45,6 +45,22 @@
     parallax: 1           // 相机视差强度
   };
   var DESPAWN_R = 1200;       // 飞出这个距离视为丢失
+
+  /* ---------- 移动端自动降载：手机 GPU/内存有限，全套 8K 必挂 ----------
+     贴图换 2K、dpr 1.25、帧率 30、卫星与碎石减半、太阳系布局下移 */
+  var IS_MOBILE = (function () {
+    return window.innerWidth < 768 ||
+      (window.matchMedia && window.matchMedia('(pointer: coarse)').matches &&
+       Math.min(window.innerWidth, window.innerHeight) < 900);
+  })();
+  var MOB = {
+    tex: IS_MOBILE,           /* 贴图 8k→2k 映射 */
+    dpr: IS_MOBILE ? 1.25 : 2,
+    frameMs: IS_MOBILE ? 33 : 22,   /* 30fps / 45fps */
+    satN: IS_MOBILE ? 28 : 60,
+    beltN: IS_MOBILE ? 72 : 160,
+    dome2k: IS_MOBILE          /* 天幕手机上必用 2K（134MB→34MB） */
+  };
   var MAX_FRAGS = 90;
 
   var PLANETS = [
@@ -422,9 +438,11 @@
       revealed = true;
       if (obj) obj.visible = true;
     };
+    /* 移动端自动映射 8k→2k（文件同名前缀替换） */
+    var texFile = MOB.tex ? file.replace(/^8k_/, '2k_') : file;
     texQueue.push(function (done) {
       texLoader.load(
-        TEX_BASE + "textures/" + file,
+        TEX_BASE + "textures/" + texFile,
         function (t) {
           t.anisotropy = 2;
           material.map = t;
@@ -500,7 +518,7 @@
 
   var beltRocks = [];   // { instIdx, mesh, a, r, w, tilt, ph, selfRot, scl }
   function buildBelt() {
-    var COUNT = 160;   /* 精简：稀疏离散的碎石环，避免与行星穿模 */
+    var COUNT = MOB.beltN;   /* 精简：稀疏离散的碎石环（手机再减半） */
     var inst = new THREE.InstancedMesh(
       rockGeos[1],
       new THREE.MeshPhongMaterial({ map: fragTex, shininess: 2, flatShading: true }),
@@ -736,7 +754,7 @@
   );
   scene.add(galaxyDome);
   texLoader.load(
-    TEX_BASE + 'textures/8k_stars_milky_way.jpg',
+    TEX_BASE + 'textures/' + (MOB.dome2k ? '2k_stars_milky_way.jpg' : '8k_stars_milky_way.jpg'),
     function (t) {
       galaxyDome.material.map = t;
       galaxyDome.material.opacity = 0.85;
@@ -1129,7 +1147,7 @@
         /* LEO 卫星群：60 颗，多倾角 */
         p.sats = [];
         var rndS = mulberry32(2026);
-        for (var si = 0; si < 60; si++) {
+        for (var si = 0; si < MOB.satN; si++) {
           var sm = new THREE.Mesh(SAT_GEO, [satMat, panelMat]);
           sm.scale.setScalar(0.30 + rndS() * 0.14);
           group.add(sm);
@@ -1214,7 +1232,7 @@
         body.material.emissive = new THREE.Color(0xffc98a);
         body.material.emissiveIntensity = 0.0;
         texLoader.load(
-          TEX_BASE + 'textures/8k_earth_nightmap.jpg',
+          TEX_BASE + 'textures/' + (MOB.dome2k ? '2k_earth_nightmap.jpg' : '8k_earth_nightmap.jpg'),
           function (t) {
             body.material.emissiveMap = t;
             body.material.emissiveIntensity = 1.15;
@@ -1231,7 +1249,7 @@
         );
         clouds.scale.copy(body.scale).multiplyScalar(1.035);
         texLoader.load(
-          TEX_BASE + 'textures/8k_earth_clouds.jpg',
+          TEX_BASE + 'textures/' + (MOB.dome2k ? '2k_earth_clouds.jpg' : '8k_earth_clouds.jpg'),
           function (t) {
             clouds.material.map = t;
             clouds.material.opacity = 0.92;
@@ -1605,7 +1623,7 @@
   function resize() {
     var w = window.innerWidth;
     var h = window.innerHeight;
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, MOB.dpr));
     /* 必须更新 CSS 尺寸（默认参数）：否则在系统缩放 125%/150%（dpr≠1）下
        画布按属性尺寸铺开，整个太阳系会相对屏幕偏移，拾取与画面错位 */
     renderer.setSize(w, h);
@@ -1934,6 +1952,11 @@
   window.addEventListener('pointerup', releasePointer, { passive: true });
   window.addEventListener('pointercancel', releasePointer, { passive: true });
   window.addEventListener('mouseup', releasePointer, { passive: true });
+
+  /* 触摸设备：抓着天体拖动时阻止页面滚动（passive:false 才能阻止） */
+  document.addEventListener('touchmove', function (e) {
+    if (grab) e.preventDefault();
+  }, { passive: false });
 
   document.addEventListener('pointerleave', function () { pointerOn = false; });
   window.addEventListener('blur', function () { pointerOn = false; });
@@ -2322,7 +2345,7 @@
   var lastRenderAt = 0;
 
   function tick(now) {
-    if (now - lastRenderAt < 22) {
+    if (now - lastRenderAt < MOB.frameMs) {
       raf = requestAnimationFrame(tick);
       return;
     }

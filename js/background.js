@@ -1022,7 +1022,8 @@
 
   function tick(now) {
     /* 星场同样限 45fps（22ms），与 3D 引擎对齐 */
-    if (now - bgLastRender < 22) {
+    var bgMin = (window.innerWidth < 768) ? 33 : 22;
+    if (now - bgLastRender < bgMin) {
       raf = requestAnimationFrame(tick);
       return;
     }
