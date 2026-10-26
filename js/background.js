@@ -1073,7 +1073,7 @@
       grab.ly = e.clientY;
     }
 
-    if (!REDUCED) {
+    if (!REDUCED && !window.__gesturePinching) {
       var dx = e.clientX - lastTrail.x;
       var dy = e.clientY - lastTrail.y;
       if (dx * dx + dy * dy > 26 * 26) {
