@@ -497,7 +497,6 @@
       minTrackingConfidence: 0.55,
       selfieMode: true                /* 输出镜像坐标，省去手动翻转 */
     });
-    hands.onResults(onResults);
 
     camOn = true;
     btn.classList.add('on');
@@ -538,6 +537,8 @@
         ? res.multiHandLandmarks[0] : null;
       origOnResults(res);
     };
+    /* 关键：注册包装后的回调（旧版此步缺失导致时序错乱） */
+    hands.onResults(onResults);
 
     var pump = function () {
       if (!camOn) return;
