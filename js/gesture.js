@@ -539,11 +539,6 @@
       origOnResults(res);
     };
 
-    var camBusy = function () {
-      /* 3D 上一帧渲染超 40ms 时让路，避免与渲染争主线程 */
-      return performance.now() - window.Solar3D.lastFrameTs() < 40;
-    };
-
     var pump = function () {
       if (!camOn) return;
       var t = performance.now();
@@ -566,7 +561,7 @@
           hands.onResults(onResults);
         }
       }
-      if (!inferring && !camBusy() &&
+      if (!inferring &&
           t - lastSend > SEND_GAP &&
           video.readyState >= 2 && video.videoWidth > 0) {
         inferring = true;
