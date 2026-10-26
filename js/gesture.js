@@ -692,7 +692,7 @@
     lastFrameTs = now;
 
     var lms = res.multiHandLandmarks;
-    drawHudCanvas(res);
+    drawHudCanvas(lastLms);   /* v34 改签名后此调用漏改——传 res 导致每次推理抛异常 */
     if (!lms || !lms.length) { onNoHand(); return; }
     if (lostFrames >= 45) hudSay('手势识别中 ✋');
     lostFrames = 0;
