@@ -359,6 +359,11 @@
   var video = null;
   var stream = null;
   var hands = null;
+  /* 中间快照画布：不直接喂 video 元素（部分显卡驱动上 WASM 等视频纹理会卡死），
+     改为把视频绘到 2D 画布后喂帧——业界通用兼容做法 */
+  var snapCanvas = null;
+  var snapCtx = null;
+  var delegate = 'CPU';   // 'CPU' | 'GPU'（调节台可切换）
 
   function locateFile(f) {
     return 'lib/mediapipe/' + f;
@@ -489,14 +494,21 @@
       }
     }
 
+    if (!snapCanvas) {
+      snapCanvas = document.createElement('canvas');
+      snapCanvas.width = 320;
+      snapCanvas.height = 240;
+      snapCtx = snapCanvas.getContext('2d', { willReadFrequently: true });
+    }
+
     hands = new window.Hands({ locateFile: locateFile });
     hands.setOptions({
       maxNumHands: 2,
-      /* 手机 GPU 弱：轻量模型（0）在手机上更快且精度足够 */
       modelComplexity: IS_LIKE_MOBILE ? 0 : 1,
       minDetectionConfidence: 0.6,
       minTrackingConfidence: 0.55,
-      selfieMode: true                /* 输出镜像坐标，省去手动翻转 */
+      selfieMode: true,
+      delegate: delegate              /* CPU(WebAssembly) 或 GPU(WebGL) */
     });
 
     camOn = true;
@@ -555,6 +567,7 @@
           hands.setOptions({
             maxNumHands: 2,
             modelComplexity: IS_LIKE_MOBILE ? 0 : 1,
+            delegate: delegate,
             minDetectionConfidence: 0.6,
             minTrackingConfidence: 0.55,
             selfieMode: true
@@ -569,7 +582,9 @@
         sendCount++;
         lastSend = t;
         try {
-          hands.send({ image: video });
+          /* 视频 → 快照画布 → 推理（绕开 video 纹理直传的驱动兼容问题） */
+          snapCtx.drawImage(video, 0, 0, snapCanvas.width, snapCanvas.height);
+          hands.send({ image: snapCanvas });
         } catch (e) {
           inferring = false;
           failCount++;
@@ -588,6 +603,7 @@
           hands = new window.Hands({ locateFile: locateFile });
           hands.setOptions({
             maxNumHands: 2,
+            delegate: delegate,
             modelComplexity: 0,          /* 重建用轻量模型 */
             minDetectionConfidence: 0.6,
             minTrackingConfidence: 0.55,
@@ -887,6 +903,30 @@
 
   window.BlogGesture = {
     classify: classifyHand,
+    /* 推理后端热切换：CPU=WebAssembly / GPU=WebGL（调节台调用） */
+    setBackend: function (d) {
+      if (d !== 'CPU' && d !== 'GPU') return false;
+      if (delegate === d) return true;
+      delegate = d;
+      if (camOn) {   /* 热切换：关流重开 */
+        stopCamera();
+        setTimeout(startCamera, 250);
+      }
+      return true;
+    },
+    backend: function () { return delegate; },
+    /* 推理后端热切换：CPU=WebAssembly / GPU=WebGL（调节台调用） */
+    setBackend: function (d) {
+      if (d !== 'CPU' && d !== 'GPU') return false;
+      if (delegate === d) return true;
+      delegate = d;
+      if (camOn) {   /* 热切换：关流重开 */
+        stopCamera();
+        setTimeout(startCamera, 250);
+      }
+      return true;
+    },
+    backend: function () { return delegate; },
     fingersUp: fingersUp,
     state: state,
     isOn: function () { return camOn; }
