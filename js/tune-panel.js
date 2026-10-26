@@ -97,6 +97,13 @@
       '<button type="button" data-g="off" class="on">隐藏</button>' +
       '<button type="button" data-g="on">时空弯曲网格</button>' +
     '</div></section>' +
+    '<section class="tp-group"><h4>推理后端</h4>' +
+    '<div class="tp-seg" id="tp-backend">' +
+      '<button type="button" data-d="CPU" class="on">CPU</button>' +
+      '<button type="button" data-d="GPU">GPU</button>' +
+    '</div>' +
+    '<div class="tp-hint" id="tp-backendhint">推理卡住时切换后端试试</div>' +
+    '</section>' +
     '<section class="tp-group"><h4>鼠标模式</h4>' +
     '<div class="tp-seg" id="tp-mousemode">' +
       '<button type="button" data-m="select" class="on">选中模式</button>' +
@@ -218,6 +225,17 @@
     gravSeg.querySelectorAll('button').forEach(function (x) {
       x.classList.toggle('on',
         x.getAttribute('data-g') === (on ? 'on' : 'off'));
+    });
+  });
+
+  /* 推理后端切换 */
+  var bkSeg = panel.querySelector('#tp-backend');
+  bkSeg.addEventListener('click', function (e) {
+    var b = e.target.closest('button');
+    if (!b || !window.BlogGesture.setBackend) return;
+    window.BlogGesture.setBackend(b.getAttribute('data-d'));
+    bkSeg.querySelectorAll('button').forEach(function (x) {
+      x.classList.toggle('on', x === b);
     });
   });
 
