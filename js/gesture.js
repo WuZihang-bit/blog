@@ -511,7 +511,20 @@
     var SEND_GAP = IS_LIKE_MOBILE ? 66 : 33;
     var inferring = false;
     var stallCount = 0;
+    var stallRebuilt = false;
     var lastSend = 0;
+    var sendCount = 0;
+    var failCount = 0;
+    var resultCount = 0;
+
+    /* 预览循环：独立于推理——就算推理卡死，摄像头画面照常显示 */
+    var lastLms = null;
+    var previewLoop = function () {
+      if (!camOn) return;
+      drawHudCanvas(lastLms);
+      requestAnimationFrame(previewLoop);
+    };
+    requestAnimationFrame(previewLoop);
     var firstResultAt = 0;
     var camStartedAt = performance.now();
     var retried = false;
@@ -519,7 +532,10 @@
     var origOnResults = onResults;
     onResults = function (res) {
       inferring = false;
+      resultCount++;
       if (!firstResultAt) firstResultAt = performance.now();
+      lastLms = (res && res.multiHandLandmarks && res.multiHandLandmarks.length)
+        ? res.multiHandLandmarks[0] : null;
       origOnResults(res);
     };
 
@@ -554,11 +570,33 @@
           t - lastSend > SEND_GAP &&
           video.readyState >= 2 && video.videoWidth > 0) {
         inferring = true;
+        sendCount++;
         lastSend = t;
         try {
           hands.send({ image: video });
         } catch (e) {
           inferring = false;
+          failCount++;
+        }
+      }
+      /* 推理停滞自恢复：4 秒无结果 → 解除卡死；二次停滞 → 重建引擎一次 */
+      if (inferring && t - lastSend > 4000) {
+        inferring = false;
+        stallCount++;
+        hudSay('推理停滞 ' + stallCount + ' 次（send ' + sendCount +
+          ' / result ' + resultCount + ' / fail ' + failCount + '）');
+        if (stallCount >= 2 && !stallRebuilt) {
+          stallRebuilt = true;
+          try { hands.close(); } catch (e) {}
+          hands = new window.Hands({ locateFile: locateFile });
+          hands.setOptions({
+            maxNumHands: 2,
+            modelComplexity: 0,          /* 重建用轻量模型 */
+            minDetectionConfidence: 0.6,
+            minTrackingConfidence: 0.55,
+            selfieMode: true
+          });
+          hands.onResults(onResults);
         }
       }
       /* 看门狗：开启 8 秒仍无任何推理结果 → 重建引擎（最多 1 次），
@@ -778,22 +816,28 @@
     [13, 17], [17, 18], [18, 19], [19, 20], [0, 17]
   ];
 
-  function drawHudCanvas(res) {
+  function drawHudCanvas(lm) {
+    /* 参数：主手 21 关键点缓存或 null（预览循环独立于推理持续绘制） */
     var w = ghCanvas.width, h = ghCanvas.height;
     ghCtx.clearRect(0, 0, w, h);
-    /* 镜像视频 */
-    if (video && video.readyState >= 2) {
-      ghCtx.save();
-      ghCtx.translate(w, 0);
-      ghCtx.scale(-1, 1);
-      ghCtx.globalAlpha = 0.9;
-      ghCtx.drawImage(video, 0, 0, w, h);
-      ghCtx.restore();
+    if (!video || video.readyState < 2 || !video.videoWidth) {
+      ghCtx.fillStyle = 'rgba(0,0,0,0.55)';
+      ghCtx.fillRect(0, 0, w, h);
+      ghCtx.fillStyle = 'rgba(165, 200, 240, 0.9)';
+      ghCtx.font = '11px ui-monospace, monospace';
+      ghCtx.textAlign = 'center';
+      ghCtx.fillText('等待摄像头画面… RS=' + (video ? video.readyState : '-'),
+        w / 2, h / 2);
+      return;
     }
-    var lms = res.multiHandLandmarks;
-    if (!lms) return;
-    for (var hi = 0; hi < lms.length; hi++) {
-      var lm = lms[hi];
+    ghCtx.save();
+    ghCtx.translate(w, 0);
+    ghCtx.scale(-1, 1);
+    ghCtx.globalAlpha = 0.9;
+    ghCtx.drawImage(video, 0, 0, w, h);
+    ghCtx.restore();
+    if (!lm) return;
+    {
       /* 连线 */
       ghCtx.strokeStyle = 'rgba(125, 211, 252, 0.75)';
       ghCtx.lineWidth = 1.6;
