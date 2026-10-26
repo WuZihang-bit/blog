@@ -363,8 +363,55 @@
     return 'lib/mediapipe/' + f;
   }
 
+  /* 资产探活：MediaPipe 需要 8 个本地文件，任何 404 都会让管线永不就绪 */
+  var MP_ASSETS = [
+    'hands.binarypb',
+    'hands_solution_packed_assets_loader.js',
+    'hands_solution_packed_assets.data',
+    'hands_solution_simd_wasm_bin.js',
+    'hands_solution_simd_wasm_bin.wasm',
+    'hands_solution_wasm_bin.js',
+    'hands_solution_wasm_bin.wasm',
+    'hand_landmark_full.tflite'
+  ];
+
+  function probeAssets() {
+    return Promise.all(MP_ASSETS.map(function (f) {
+      return fetch('lib/mediapipe/' + f, { method: 'HEAD' })
+        .then(function (r) { return { f: f, ok: r.ok }; })
+        .catch(function () { return { f: f, ok: false }; });
+    })).then(function (rs) {
+      return rs.filter(function (x) { return !x.ok; }).map(function (x) { return x.f; });
+    });
+  }
+
+  var SIMD_OK = (function () {
+    try {
+      return WebAssembly.validate(new Uint8Array([
+        0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 123, 3, 2, 1, 0,
+        10, 10, 1, 8, 0, 65, 0, 253, 15, 253, 98, 11]));
+    } catch (e) { return false; }
+  })();
+
+  var rebuildCount = 0;
+
   async function startCamera() {
     if (camOn) return;
+
+    /* 管线健康预检：资产完整性 + SIMD 支持。
+       任何缺失都会导致「推理永不返回 → 看门狗无限重建」，必须前置拦截 */
+    hud.classList.add('show');
+    hudSay('检查手势引擎资源…');
+    var missing = await probeAssets();
+    if (missing.length) {
+      hudSay('引擎文件缺失：' + missing.join(', '), true);
+      setTimeout(function () { if (!camOn) hud.classList.remove('show'); }, 6000);
+      return;
+    }
+    if (!SIMD_OK) {
+      /* 非 SIMD 环境：hands.js 会自动改用非 SIMD wasm（已补齐文件） */
+      hudSay('检测到无 SIMD 支持，已切换兼容模式');
+    }
 
     /* 安全上下文检查：getUserMedia 只在 https/localhost 可用
        （手机上用 http://IP 访问会静默失败，必须提示） */
@@ -398,12 +445,22 @@
       setTimeout(function () { if (!camOn) hud.classList.remove('show'); }, 4500);
       return;
     }
-    video = document.createElement('video');
+    /* 重建时复用同一个 video 元素（防 DOM 累积多个隐藏 video） */
+    video = document.getElementById('gesture-video') ||
+      (function () {
+        var v = document.createElement('video');
+        v.id = 'gesture-video';
+        v.muted = true;
+        v.playsInline = true;          /* iOS 必需：防全屏接管 */
+        v.setAttribute('playsinline', '');   /* iOS 旧版属性 */
+        v.setAttribute('webkit-playsinline', '');
+        /* 挂入 DOM（隐藏）：游离 video 在部分平台解码不可靠（黑屏/停帧根因） */
+        v.style.cssText = 'position:fixed;left:0;bottom:0;width:2px;height:2px;' +
+          'opacity:0.01;pointer-events:none;z-index:-1;';
+        document.body.appendChild(v);
+        return v;
+      })();
     video.srcObject = stream;
-    video.muted = true;
-    video.playsInline = true;          /* iOS 必需：防全屏接管 */
-    video.setAttribute('playsinline', '');   /* iOS 旧版属性 */
-    video.setAttribute('webkit-playsinline', '');
     try {
       await video.play();
     } catch (e) {
@@ -453,6 +510,7 @@
        setTimeout 独立节流，不受渲染帧率影响。 */
     var SEND_GAP = IS_LIKE_MOBILE ? 66 : 33;
     var inferring = false;
+    var stallCount = 0;
     var lastSend = 0;
     var firstResultAt = 0;
     var camStartedAt = performance.now();
@@ -473,6 +531,25 @@
     var pump = function () {
       if (!camOn) return;
       var t = performance.now();
+      /* 推理停滞自恢复：onResults 丢失时 inferring 会永久卡 true */
+      if (inferring && t - lastSend > 3000) {
+        inferring = false;
+        stallCount++;
+        if (stallCount >= 2 && rebuildCount < 1) {
+          rebuildCount++;
+          hudSay('推理停滞，重建引擎…');
+          try { hands.close(); } catch (e) {}
+          hands = new window.Hands({ locateFile: locateFile });
+          hands.setOptions({
+            maxNumHands: 2,
+            modelComplexity: IS_LIKE_MOBILE ? 0 : 1,
+            minDetectionConfidence: 0.6,
+            minTrackingConfidence: 0.55,
+            selfieMode: true
+          });
+          hands.onResults(onResults);
+        }
+      }
       if (!inferring && !camBusy() &&
           t - lastSend > SEND_GAP &&
           video.readyState >= 2 && video.videoWidth > 0) {
@@ -484,8 +561,16 @@
           inferring = false;
         }
       }
-      /* 看门狗：开启 8 秒仍无任何推理结果 → 自动重建一次引擎 */
+      /* 看门狗：开启 8 秒仍无任何推理结果 → 重建引擎（最多 1 次），
+         二次仍失败则明确告知兼容性问题，不再无限循环 */
       if (firstResultAt === 0 && performance.now() - camStartedAt > 8000 && !retried) {
+        if (rebuildCount >= 1) {
+          retried = true;
+          hudSay('此浏览器的 WASM 环境不兼容，建议改用 Chrome 并更新显卡驱动', true);
+          stopCamera();
+          return;
+        }
+        rebuildCount++;
         retried = true;
         hudSay('引擎推理异常，自动重建…');
         try { hands.close(); } catch (e) {}
