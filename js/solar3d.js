@@ -2763,6 +2763,7 @@
       cancel: pilotCancel,
       status: pilotStatus
     },
+    lastFrameTs: function () { return lastFrameAt; },
     gestureZoom: function (factor) {
       /* 手势双手开合 → 自由模式缩放 */
       if (PARAMS.mouseMode !== 'free') return;
