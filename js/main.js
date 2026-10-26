@@ -11,6 +11,9 @@
 (function () {
   'use strict';
 
+  window.__BUILD = '20261026-g';
+  try { console.log('[深空站] build ' + window.__BUILD); } catch (e) {}
+
   var REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   var FINE_POINTER = window.matchMedia &&
     window.matchMedia('(hover: hover) and (pointer: fine)').matches;

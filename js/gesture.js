@@ -516,6 +516,19 @@
     hud.classList.add('show');
     hudSay('手势识别已开启 ✋ 抬手到镜头前');
 
+    /* 诊断接口：面板/对话里可随时读取识别链路各环节状态 */
+    window.BlogGesture.diag = function () {
+      return {
+        camOn: camOn,
+        videoState: video.readyState,          /* 2=有画面 */
+        videoW: video.videoWidth,              /* 0=还没出帧 */
+        paused: video.paused,
+        send: sendCount, result: resultCount, fail: failCount,
+        inferring: inferring, stalls: stallCount,
+        backend: delegate, build: window.__BUILD || '?'
+      };
+    };
+
     /* 推理循环 v2：背压式（深度 1）——上一帧 onResults 没回来就不发下一帧。
        原定时发送会让 WASM 推理在主线程排队堆积，
        把 3D 渲染和手势事件全部拖卡（本次卡顿的根因）。
