@@ -243,6 +243,7 @@
       }
       if (confirmed === 'pinch') {
         state.pinchDown = true;
+        window.__gesturePinching = true;
         state.cand = 'pinch'; state.candCount = HOLD_FRAMES;
         fireEvent('pinchstart', { x: pinchX, y: pinchY });
       }
@@ -251,6 +252,7 @@
     /* 捏合结束：滞回判定（已由 effType 处理） */
     if (state.cur !== 'pinch' && state.pinchDown) {
       state.pinchDown = false;
+      window.__gesturePinching = false;
       fireEvent('pinchend', {});
     }
 
@@ -445,27 +447,60 @@
     hud.classList.add('show');
     hudSay('手势识别已开启 ✋ 抬手到镜头前');
 
-    /* 采集循环：手机用 setTimeout 固定 15fps（省电且 WASM 推理更稳），
-       桌面保持 rAF 30fps */
+    /* 推理循环 v2：背压式（深度 1）——上一帧 onResults 没回来就不发下一帧。
+       原定时发送会让 WASM 推理在主线程排队堆积，
+       把 3D 渲染和手势事件全部拖卡（本次卡顿的根因）。
+       setTimeout 独立节流，不受渲染帧率影响。 */
+    var SEND_GAP = IS_LIKE_MOBILE ? 66 : 33;
+    var inferring = false;
     var lastSend = 0;
-    var MOBILE_CAM = IS_LIKE_MOBILE || window.innerWidth < 768;
-    var SEND_GAP = MOBILE_CAM ? 66 : 33;
-    var loop = function () {
+    var firstResultAt = 0;
+    var camStartedAt = performance.now();
+    var retried = false;
+
+    var origOnResults = onResults;
+    onResults = function (res) {
+      inferring = false;
+      if (!firstResultAt) firstResultAt = performance.now();
+      origOnResults(res);
+    };
+
+    var camBusy = function () {
+      /* 3D 上一帧渲染超 40ms 时让路，避免与渲染争主线程 */
+      return performance.now() - window.Solar3D.lastFrameTs() < 40;
+    };
+
+    var pump = function () {
       if (!camOn) return;
       var t = performance.now();
-      if (t - lastSend > SEND_GAP && video.readyState >= 2) {
+      if (!inferring && !camBusy() &&
+          t - lastSend > SEND_GAP &&
+          video.readyState >= 2 && video.videoWidth > 0) {
+        inferring = true;
         lastSend = t;
         try {
           hands.send({ image: video });
-        } catch (e) { /* WASM 偶发忙，跳帧即可 */ }
+        } catch (e) {
+          inferring = false;
+        }
       }
-      requestAnimationFrame(loop);
+      /* 看门狗：开启 8 秒仍无任何推理结果 → 自动重建一次引擎 */
+      if (firstResultAt === 0 && performance.now() - camStartedAt > 8000 && !retried) {
+        retried = true;
+        hudSay('引擎推理异常，自动重建…');
+        try { hands.close(); } catch (e) {}
+        hands = null;
+        setTimeout(function () { if (camOn) { camOn = false; startCamera(); } }, 300);
+        return;
+      }
+      setTimeout(pump, SEND_GAP);
     };
-    requestAnimationFrame(loop);
+    setTimeout(pump, SEND_GAP);
   }
 
   function stopCamera() {
     camOn = false;
+    window.__gesturePinching = false;
     btn.classList.remove('on');
     hud.classList.remove('show');
     /* 会话复位：下次开启是干净状态 */
@@ -504,6 +539,7 @@
   var lostFrames = 0;
   function onNoHand() {
     lostFrames++;
+    window.__gesturePinching = false;
     if (state.pinchDown) {
       state.pinchDown = false;
       fireEvent('pinchend', {});
