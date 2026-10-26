@@ -533,7 +533,7 @@
        原定时发送会让 WASM 推理在主线程排队堆积，
        把 3D 渲染和手势事件全部拖卡（本次卡顿的根因）。
        setTimeout 独立节流，不受渲染帧率影响。 */
-    var SEND_GAP = IS_LIKE_MOBILE ? 66 : 33;
+    var SEND_GAP = 66;   /* 15fps 推理：手势识别足够，为主线程减压 */
     var inferring = false;
     var stallCount = 0;
     var stallRebuilt = false;
@@ -605,7 +605,7 @@
         }
       }
       /* 推理停滞自恢复：4 秒无结果 → 解除卡死；二次停滞 → 重建引擎一次 */
-      if (inferring && t - lastSend > 4000) {
+      if (inferring && firstResultAt && t - lastSend > 6000) {
         inferring = false;
         stallCount++;
         hudSay('推理停滞 ' + stallCount + ' 次（send ' + sendCount +
@@ -627,7 +627,7 @@
       }
       /* 看门狗：开启 8 秒仍无任何推理结果 → 重建引擎（最多 1 次），
          二次仍失败则明确告知兼容性问题，不再无限循环 */
-      if (firstResultAt === 0 && performance.now() - camStartedAt > 8000 && !retried) {
+      if (firstResultAt === 0 && performance.now() - camStartedAt > 15000 && !retried) {
         if (rebuildCount >= 1) {
           retried = true;
           hudSay('此浏览器的 WASM 环境不兼容，建议改用 Chrome 并更新显卡驱动', true);
@@ -899,6 +899,10 @@
     if (!g) {
       hudSay('把手放到镜头前');
       return;
+    }
+    /* 无特定手势时的活性心跳：让用户确认识别在持续运行 */
+    if (resultCount > 0 && state.cur === 'none') {
+      hudSay('识别中 · 已处理 ' + resultCount + ' 帧');
     }
     var label = GESTURE_NAMES[state.cur] || state.cur;
     hudSay(label + (state.pinchDown ? ' · 拖拽中' : ''));
