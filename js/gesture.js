@@ -265,6 +265,7 @@
   };
 
   var lm8Cache = null;   /* 食指尖（point 用） */
+  var lastLms = null;    /* 主手骨架缓存（onResults 写 / 预览读） */
 
   /* ======================================================
      三、动作映射（手势 → 各模块）
@@ -517,7 +518,6 @@
     var resultCount = 0;
 
     /* 预览循环：独立于推理——就算推理卡死，摄像头画面照常显示 */
-    var lastLms = null;
     var previewLoop = function () {
       if (!camOn) return;
       drawHudCanvas(lastLms);
@@ -573,6 +573,7 @@
         } catch (e) {
           inferring = false;
           failCount++;
+          hudSay('推理异常：' + String(e && e.message || e).slice(0, 80), true);
         }
       }
       /* 推理停滞自恢复：4 秒无结果 → 解除卡死；二次停滞 → 重建引擎一次 */
