@@ -582,6 +582,7 @@
       lastLms = (res && res.multiHandLandmarks && res.multiHandLandmarks.length)
         ? res.multiHandLandmarks[0] : null;
       evPush(lastLms ? '帧: 检测到手' : '帧: 无手');
+      origOnResults(res);   /* 转发给真正的识别处理（此前遗漏导致识别链断裂） */
     };
     /* 关键：注册包装后的回调（旧版此步缺失导致时序错乱） */
     hands.onResults(onResults);
