@@ -238,6 +238,7 @@
       var cool = COOLDOWN[confirmed] || 600;
       if (!state.lastFire[confirmed] || now - state.lastFire[confirmed] > cool) {
         state.lastFire[confirmed] = now;
+        evPush('确认手势: ' + confirmed);
         fireEvent('fire', { type: confirmed });
         showGestureToast(confirmed);
       }
@@ -266,6 +267,12 @@
 
   var lm8Cache = null;   /* 食指尖（point 用） */
   var lastLms = null;    /* 主手骨架缓存（onResults 写 / 预览读） */
+  /* 事件环形缓冲：记录关键转换，卡顿时可精确回放卡在哪一环 */
+  var evRing = [];
+  var evPush = function (msg) {
+    evRing.push('[' + (performance.now() / 1000).toFixed(1) + 's] ' + msg);
+    if (evRing.length > 24) evRing.shift();
+  };
 
   /* ======================================================
      三、动作映射（手势 → 各模块）
@@ -561,7 +568,7 @@
       if (!firstResultAt) firstResultAt = performance.now();
       lastLms = (res && res.multiHandLandmarks && res.multiHandLandmarks.length)
         ? res.multiHandLandmarks[0] : null;
-      origOnResults(res);
+      evPush(lastLms ? '帧: 检测到手' : '帧: 无手');
     };
     /* 关键：注册包装后的回调（旧版此步缺失导致时序错乱） */
     hands.onResults(onResults);
@@ -932,6 +939,7 @@
       return true;
     },
     backend: function () { return delegate; },
+    ring: function () { return evRing.slice(-24); },
     /* 推理后端热切换：CPU=WebAssembly / GPU=WebGL（调节台调用） */
     setBackend: function (d) {
       if (d !== 'CPU' && d !== 'GPU') return false;
