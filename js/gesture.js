@@ -568,26 +568,9 @@
     var pump = function () {
       if (!camOn) return;
       var t = performance.now();
-      /* 推理停滞自恢复：onResults 丢失时 inferring 会永久卡 true */
-      if (inferring && t - lastSend > 3000) {
-        inferring = false;
-        stallCount++;
-        if (stallCount >= 2 && rebuildCount < 1) {
-          rebuildCount++;
-          hudSay('推理停滞，重建引擎…');
-          try { hands.close(); } catch (e) {}
-          hands = new window.Hands({ locateFile: locateFile });
-          hands.setOptions({
-            maxNumHands: 2,
-            modelComplexity: IS_LIKE_MOBILE ? 0 : 1,
-            delegate: delegate,
-            minDetectionConfidence: 0.6,
-            minTrackingConfidence: 0.55,
-            selfieMode: true
-          });
-          hands.onResults(onResults);
-        }
-      }
+      /* 慢帧不干预：背压机制自动调节节奏（快机器快、慢机器慢），
+         强行重建只会冷启动更慢陷入死循环（已踩坑）。
+         真死管道由 15s 看门狗兜底 */
       if (!inferring &&
           t - lastSend > SEND_GAP &&
           video.readyState >= 2 && video.videoWidth > 0) {
@@ -859,8 +842,19 @@
     ghCtx.save();
     ghCtx.translate(w, 0);
     ghCtx.scale(-1, 1);
-    ghCtx.globalAlpha = 0.9;
+    /* 美颜三连：提亮白皙 → 磨皮平滑 → 柔光罩 */
+    ghCtx.filter = 'brightness(1.13) contrast(0.93) saturate(0.85)';
     ghCtx.drawImage(video, 0, 0, w, h);
+    ghCtx.filter = 'blur(2px)';
+    ghCtx.globalAlpha = 0.30;               /* 模糊层叠刷 = 磨皮 */
+    ghCtx.drawImage(video, 0, 0, w, h);
+    ghCtx.filter = 'none';
+    ghCtx.globalCompositeOperation = 'soft-light';
+    ghCtx.globalAlpha = 0.20;
+    ghCtx.fillStyle = '#fffdf6';            /* 白皙柔光罩 */
+    ghCtx.fillRect(0, 0, w, h);
+    ghCtx.globalCompositeOperation = 'source-over';
+    ghCtx.globalAlpha = 1;
     ghCtx.restore();
     if (!lm) return;
     {
