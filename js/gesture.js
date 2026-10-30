@@ -534,6 +534,7 @@
        把 3D 渲染和手势事件全部拖卡（本次卡顿的根因）。
        setTimeout 独立节流，不受渲染帧率影响。 */
     var SEND_GAP = 66;   /* 15fps 推理：手势识别足够，为主线程减压 */
+    var lowPower = false;   /* 慢机器自适应：连续停滞后自动降到 2 秒一帧 */
     var inferring = false;
     var stallCount = 0;
     var stallRebuilt = false;
@@ -571,8 +572,9 @@
       /* 慢帧不干预：背压机制自动调节节奏（快机器快、慢机器慢），
          强行重建只会冷启动更慢陷入死循环（已踩坑）。
          真死管道由 15s 看门狗兜底 */
+      var gap = lowPower ? 2000 : SEND_GAP;
       if (!inferring &&
-          t - lastSend > SEND_GAP &&
+          t - lastSend > gap &&
           video.readyState >= 2 && video.videoWidth > 0) {
         inferring = true;
         sendCount++;
@@ -593,6 +595,10 @@
         stallCount++;
         hudSay('推理停滞 ' + stallCount + ' 次（send ' + sendCount +
           ' / result ' + resultCount + ' / fail ' + failCount + '）');
+        if (stallCount >= 2 && !lowPower) {
+          lowPower = true;
+          hudSay('检测到高负载，已切换低功耗模式（2 秒一帧）');
+        }
         if (stallCount >= 2 && !stallRebuilt) {
           stallRebuilt = true;
           try { hands.close(); } catch (e) {}
