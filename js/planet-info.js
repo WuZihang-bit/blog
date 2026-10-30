@@ -81,6 +81,13 @@
   }
 
   card.querySelector('#pc-close').addEventListener('click', closeCard);
+
+  /* 点击卡片以外的任何地方 → 自动关闭 */
+  window.addEventListener('pointerdown', function (e) {
+    if (!card.classList.contains('open')) return;
+    if (card.contains(e.target)) return;
+    closeCard();
+  }, true);
   window.addEventListener('keydown', function (e) {
     if (e.key === 'Escape') closeCard();
   });
