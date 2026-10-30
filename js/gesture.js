@@ -523,6 +523,19 @@
     hud.classList.add('show');
     hudSay('手势识别已开启 ✋ 抬手到镜头前');
 
+    /* 快照亮度探针：直接测量喂给 MediaPipe 的画布内容（黑帧检测） */
+    window.BlogGesture.snapLum = function () {
+      try {
+        var d = snapCtx.getImageData(0, 0, snapCanvas.width, snapCanvas.height).data;
+        var sum = 0, n = 0;
+        for (var i = 0; i < d.length; i += 400) {
+          sum += (d[i] + d[i + 1] + d[i + 2]) / 3;
+          n++;
+        }
+        return Math.round(sum / n);
+      } catch (e) { return 'ERR: ' + e.message; }
+    };
+
     /* 诊断接口：面板/对话里可随时读取识别链路各环节状态 */
     window.BlogGesture.diag = function () {
       return {
