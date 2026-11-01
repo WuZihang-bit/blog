@@ -7,10 +7,17 @@ python http.server 不发 Cache-Control，浏览器会启发式缓存 JS/CSS，
 """
 import http.server
 import socketserver
+import mimetypes
 import os
 import sys
 
 PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 8123
+
+# ES 模块（.mjs）必须以 JS MIME 返回，否则 Chrome 拒绝 import()；
+# .wasm 必须为 application/wasm（instantiateStreaming 的硬性要求）
+mimetypes.add_type("text/javascript", ".mjs")
+mimetypes.add_type("application/wasm", ".wasm")
+mimetypes.add_type("application/octet-stream", ".task")
 
 
 class NoCacheHandler(http.server.SimpleHTTPRequestHandler):

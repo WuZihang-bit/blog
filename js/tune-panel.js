@@ -66,6 +66,19 @@
         { label: '流星间隔（秒）', min: 2, max: 20, step: 1, get: function () { return 6; }, set: function (v) { if (B && B.tune) B.tune.setCometEvery(v); } },
         { label: '星尘数量', min: 10, max: 60, step: 2, get: function () { return 30; }, set: function (v) { if (B && B.tune) B.tune.setBurstSparks(v); } }
       ]
+    },
+    {
+      group: '手势识别',
+      items: [
+        /* 实际帧率 = min(设定值, 1000/单帧推理耗时)，背压自动兜底不会堆积 */
+        { label: '识别帧率', min: 5, max: 60, step: 1, hint: '实际受单帧推理耗时限制',
+          get: function () {
+            return (window.BlogGesture && window.BlogGesture.getFps) ? window.BlogGesture.getFps() : 20;
+          },
+          set: function (v) {
+            if (window.BlogGesture && window.BlogGesture.setFps) window.BlogGesture.setFps(v);
+          } }
+      ]
     }
   ];
 
@@ -228,8 +241,9 @@
     });
   });
 
-  /* 推理后端切换 */
+  /* 推理后端切换（CPU=worker 内 WebAssembly / GPU=worker 内 WebGL） */
   var bkSeg = panel.querySelector('#tp-backend');
+  var bkHint = panel.querySelector('#tp-backendhint');
   bkSeg.addEventListener('click', function (e) {
     var b = e.target.closest('button');
     if (!b || !window.BlogGesture.setBackend) return;
@@ -237,6 +251,9 @@
     bkSeg.querySelectorAll('button').forEach(function (x) {
       x.classList.toggle('on', x === b);
     });
+    bkHint.textContent = b.getAttribute('data-d') === 'GPU'
+      ? 'GPU 单帧最快（识别帧率上限最高），失败自动回退 CPU'
+      : 'CPU 兼容性最好；帧率请在「手势识别」组调节';
   });
 
   /* 鼠标模式分段控件 */

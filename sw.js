@@ -1,16 +1,18 @@
 /* 吴子航的博客 · Service Worker（PWA 离线缓存）
    策略：HTML 网络优先（离线回退缓存）；静态资源缓存优先；
    大贴图 stale-while-revalidate（先给缓存秒开，后台更新）。
-   版本号升级时自动清理旧缓存。 */
+   版本号升级时自动清理旧缓存。
+   v2：引擎资产（lib/）网络直通永不缓存——一旦缓存住损坏/过期版本，
+   WASM 引擎会静默失败（识别永不返回）且极难排查。 */
 
-var CACHE = 'blog-v1';
+var CACHE = 'blog-v2';
 var CORE = [
   './', './index.html', './archive.html', './tags.html', './about.html',
   './messages.html', './favicon.svg',
   './css/style.css',
   './js/main.js', './js/background.js', './js/solar3d.js',
   './js/tune-panel.js', './js/copilot.js', './js/gesture.js',
-  './js/comments.js', './js/float-mode.js'
+  './js/gesture-worker.js', './js/comments.js', './js/float-mode.js'
 ];
 
 self.addEventListener('install', function (e) {
@@ -33,16 +35,22 @@ self.addEventListener('fetch', function (e) {
   var url = new URL(e.request.url);
   if (url.origin !== location.origin) return;
 
+  /* 引擎资产直通：WASM/模型文件永不走缓存（损坏/过期版本会让
+     手势识别静默失败，且 SW 缓存无法自动纠正） */
+  if (url.pathname.indexOf('/lib/') >= 0) return;
+
   var isHTML = e.request.mode === 'navigate' ||
     (url.pathname.endsWith('.html') || url.pathname.endsWith('/'));
   var isBigTex = url.pathname.indexOf('/textures/') >= 0;
 
   if (isHTML) {
-    /* 网络优先，离线回退 */
+    /* 网络优先，离线回退（只缓存成功响应，404/错误页绝不入缓存） */
     e.respondWith(
       fetch(e.request).then(function (r) {
-        var copy = r.clone();
-        caches.open(CACHE).then(function (c) { c.put(e.request, copy); });
+        if (r && r.ok) {
+          var copy = r.clone();
+          caches.open(CACHE).then(function (c) { c.put(e.request, copy); });
+        }
         return r;
       }).catch(function () {
         return caches.match(e.request).then(function (r) {
@@ -58,8 +66,10 @@ self.addEventListener('fetch', function (e) {
     e.respondWith(
       caches.match(e.request).then(function (cached) {
         var fetchP = fetch(e.request).then(function (r) {
-          var copy = r.clone();
-          caches.open(CACHE).then(function (c) { c.put(e.request, copy); });
+          if (r && r.ok) {
+            var copy = r.clone();
+            caches.open(CACHE).then(function (c) { c.put(e.request, copy); });
+          }
           return r;
         }).catch(function () { return cached; });
         return cached || fetchP;
@@ -68,12 +78,14 @@ self.addEventListener('fetch', function (e) {
     return;
   }
 
-  /* 其余静态：缓存优先 */
+  /* 其余静态：缓存优先（只收 200；过期/损坏响应永不入缓存） */
   e.respondWith(
     caches.match(e.request).then(function (cached) {
       return cached || fetch(e.request).then(function (r) {
-        var copy = r.clone();
-        caches.open(CACHE).then(function (c) { c.put(e.request, copy); });
+        if (r && r.ok) {
+          var copy = r.clone();
+          caches.open(CACHE).then(function (c) { c.put(e.request, copy); });
+        }
         return r;
       });
     })
